@@ -67,14 +67,64 @@ export function extractSlicerOptionsFromData(data) {
 
 // === LOAD SLICER OPTIONS FROM STATION JSON ===
 export async function loadSlicerOptions(stationId) {
-    console.log('🔧 Using hardcoded options for now');
-    
-    // SIMPLE FIX: Return hardcoded options
-    return {
-        deliveryStatus: ['Completed', 'Pending', 'Cancelled'],
-        vehicleTasks: ['G01', 'C31', 'P99', 'P97'],
-        wasteType: ['Municipal Solid Waste', 'Grease Trap Waste', 'Construction Waste']
-    };
+    try {
+        const stationFile = stationId.toLowerCase();
+        console.log(`📂 Loading data for station: ${stationFile}`);
+        
+        // Try multiple path options to find the right one
+        const pathOptions = [
+            './data/' + stationFile + '.json',    // Same directory as HTML
+            'data/' + stationFile + '.json',      // Relative to current
+            '../data/' + stationFile + '.json',   // Up one level
+            '/data/' + stationFile + '.json'      // Absolute from root
+        ];
+        
+        let response;
+        let workingPath = '';
+        
+        for (const path of pathOptions) {
+            console.log(`Trying path: ${path}`);
+            try {
+                response = await fetch(path);
+                if (response.ok) {
+                    workingPath = path;
+                    console.log(`✅ Found working path: ${path}`);
+                    break;
+                }
+            } catch (e) {
+                console.log(`❌ Path failed: ${path}`);
+                continue;
+            }
+        }
+        
+        if (!response || !response.ok) {
+            throw new Error(`All path attempts failed for ${stationFile}.json`);
+        }
+        
+        const stationData = await response.json();
+        console.log(`✅ Loaded ${stationData.length} records from ${workingPath}`);
+        
+        // Extract options from actual data
+        const slicerOptions = {
+            deliveryStatus: [...new Set(stationData.map(record => record['交收狀態']).filter(Boolean))],
+            vehicleTasks: [...new Set(stationData.map(record => record['車輛任務']).filter(Boolean))],
+            wasteType: [...new Set(stationData.map(record => record['廢物類別']).filter(Boolean))]
+        };
+        
+        console.log('🎯 Extracted slicer options:', slicerOptions);
+        return slicerOptions;
+        
+    } catch (error) {
+        console.error(`❌ Error loading data for ${stationId}:`, error);
+        
+        // Fallback options if file loading fails
+        console.log('🔄 Using fallback options');
+        return {
+            deliveryStatus: ['Completed', 'Pending', 'Cancelled'],
+            vehicleTasks: ['G01', 'C31', 'P99', 'P97'],
+            wasteType: ['Municipal Solid Waste', 'Grease Trap Waste', 'Construction Waste']
+        };
+    }
 }
 
 // === RENDER DASHBOARD ===
@@ -935,5 +985,6 @@ fetch('../data/wkts.json').then(r => console.log('../data/wkts.json:', r.status)
 // Initialize dashboard when DOM is loaded
 
 document.addEventListener('DOMContentLoaded', initializeDashboard);
+
 
 
