@@ -1,0 +1,177 @@
+﻿/* === SIDEBAR === */
+.sidebar {
+    width: 80px;
+    background: #1a1a1a;
+    border-right: 1px solid #333;
+    display: flex;
+    flex-direction: column;
+    transition: width 0.3s ease;
+    position: relative;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+
+.sidebar:hover {
+    width: 250px;
+}
+
+.sidebar-header {
+    padding: 20px 15px;
+    border-bottom: 1px solid #333;
+    text-align: center;
+}
+
+.station-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: #00ff88;
+    white-space: nowrap;
+}
+
+.station-subtitle {
+    font-size: 10px;
+    color: #666;
+    margin-top: 2px;
+    white-space: nowrap;
+}
+
+.stations-section {
+    flex: 1;
+    padding: 15px 0;
+}
+
+.section-title {
+    font-size: 11px;
+    color: #666;
+    padding: 0 15px 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+}
+
+.station-item {
+    display: flex;
+    align-items: center;
+    padding: 12px 15px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border-left: 3px solid transparent;
+    position: relative;
+}
+
+.station-item:hover {
+    background: rgba(0, 255, 136, 0.05);
+}
+
+.station-item.active {
+    background: rgba(0, 255, 136, 0.1);
+    border-left-color: #00ff88;
+}
+
+.station-checkbox {
+    width: 18px;
+    height: 18px;
+    border: 2px solid #555;
+    border-radius: 4px;
+    position: relative;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+}
+
+.station-checkbox.checked {
+    background: #00ff88;
+    border-color: #00ff88;
+}
+
+.station-checkbox.checked::after {
+    content: '✓';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: #000;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+.station-name-text {
+    color: #ccc;
+    font-size: 13px;
+    font-weight: 500;
+    margin-left: 12px;
+    white-space: nowrap;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.sidebar:hover .station-name-text {
+    opacity: 1;
+}
+
+.station-item.active .station-name-text {
+    color: #00ff88;
+    font-weight: 600;
+}
+
+.all-stations .station-checkbox {
+    border-color: #888;
+}
+
+.all-stations .station-checkbox::after {
+    content: 'A';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: #888;
+    font-size: 10px;
+    font-weight: bold;
+}
+
+.sidebar-actions {
+    padding: 15px 0;
+    border-top: 1px solid #333;
+}
+
+.action-item {
+    display: flex;
+    align-items: center;
+    padding: 12px 15px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    color: #ccc;
+}
+
+.action-item:hover {
+    background: rgba(0, 255, 136, 0.05);
+    color: #00ff88;
+}
+
+.action-icon {
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+}
+
+.action-text {
+    font-size: 13px;
+    margin-left: 12px;
+    white-space: nowrap;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.sidebar:hover .action-text {
+    opacity: 1;
+}
+
+/* === RESPONSIVE SIDEBAR === */
+@media (max-width: 768px) {
+    .sidebar {
+        width: 60px;
+    }
+    
+    .sidebar:hover {
+        width: 200px;
+    }
+}

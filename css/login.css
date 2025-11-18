@@ -1,0 +1,69 @@
+﻿/* === LOGIN PAGE SPECIFIC === */
+.login-container {
+    max-width: 420px;
+    width: 100%;
+    text-align: center;
+    background: transparent;
+    padding: 40px 32px;
+    border-radius: 0;
+    box-shadow: none;
+    border: none;
+}
+
+.logo {
+    width: 100px;
+    height: 100px;
+    margin: 0 auto 32px;
+    filter: drop-shadow(0 0 8px rgba(0,255,136,0.3));
+}
+
+h1 {
+    font-size: 28px;
+    font-weight: 600;
+    margin-bottom: 8px;
+    background: linear-gradient(135deg, #00ff88, #00cc70);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.subtitle {
+    color: #a0a0a0;
+    font-size: 15px;
+    margin-bottom: 40px;
+}
+
+.form-group {
+    margin-bottom: 20px;
+    text-align: left;
+}
+
+label {
+    display: block;
+    color: #e0e0e0;
+    font-size: 15px;
+    font-weight: 500;
+    margin-bottom: 8px;
+}
+
+.error-message {
+    color: #ff4444;
+    font-size: 14px;
+    margin-top: 8px;
+    display: none;
+}
+
+.success-message {
+    color: #00ff88;
+    font-size: 14px;
+    margin-top: 8px;
+    display: none;
+}
+
+.login-footer {
+    margin-top: 30px;
+    padding-top: 20px;
+    border-top: 1px solid #333;
+    color: #888;
+    font-size: 14px;
+}

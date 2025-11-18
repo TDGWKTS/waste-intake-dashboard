@@ -1,0 +1,76 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EPD Dashboard</title>
+    
+    <!-- Import all CSS files in correct order -->
+    <link rel="stylesheet" href="css/utils.css">
+    <link rel="stylesheet" href="css/sidebar.css">
+    <link rel="stylesheet" href="css/slicer.css">
+    <link rel="stylesheet" href="css/stats.css">
+    <link rel="stylesheet" href="css/dashboard.css">
+    <link rel="stylesheet" href="/css/monthly-stats.css">
+       
+    <!-- Chart.js from different CDN to avoid tracking prevention -->
+    <script src="https://unpkg.com/chart.js@3.9.1/dist/chart.min.js"></script>
+    
+    
+    <style>
+        /* Critical loading styles to prevent FOUC */
+        #app {
+            min-height: 100vh;
+            background: #0a0a0a;
+        }
+        
+        .loading {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background: #0a0a0a;
+            color: #00ff88;
+            font-size: 18px;
+        }
+        
+        /* Ensure proper CSS class definitions */
+        .hidden {
+            display: none !important;
+        }
+        
+        .visible {
+            display: block !important;
+        }
+        
+        .stats-grid.visible {
+            display: grid !important;
+        }
+        
+        .welcome-section.visible {
+            display: flex !important;
+        }
+    </style>
+</head>
+<body>
+    <!-- Loading placeholder to prevent flash of unstyled content -->
+    <div id="app">
+        <div class="loading">Loading EPD Dashboard...</div>
+    </div>
+    
+    <!-- Load only the main dashboard module -->
+    <script type="module" src="js/dashboard.js"></script>
+        
+    <script>
+        // Error handling for module loading
+        window.addEventListener('error', function(e) {
+            console.error('Global error:', e.error);
+            document.getElementById('app').innerHTML = `
+                <div class="loading" style="color: #ff4444;">
+                    Error loading dashboard. Please check console for details.
+                </div>
+            `;
+        });
+    </script>
+</body>
+</html>

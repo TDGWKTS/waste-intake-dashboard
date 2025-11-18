@@ -1,0 +1,913 @@
+﻿/* monthly-stats.css - Updated with Hourly table styles */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: #000;
+}
+
+#app {
+    width: 100vw;
+    height: 100vh;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+}
+
+.monthly-stats-container {
+    display: flex;
+    width: 100vw;
+    height: 100vh;
+    margin: 0;
+    padding: 0;
+    background: #000;
+    color: #fff;
+}
+
+/* Monthly Stats Header */
+.monthly-stats-header {
+    padding: 20px 30px;
+    border-bottom: 1px solid #333;
+    background: #1a1a1a;
+    margin: 0;
+    width: 100%;
+}
+
+.monthly-header-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 20px;
+}
+
+.monthly-stats-header h1 {
+    color: #00ff88;
+    margin-bottom: 0;
+    font-size: 24px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.period-selector {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    flex-wrap: wrap;
+}
+
+.period-buttons {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.period-btn {
+    padding: 10px 12px;
+    background: #333;
+    border: 1px solid #555;
+    color: #ccc;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: 14px;
+    font-weight: 500;
+    white-space: nowrap;
+    min-width: 70px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    line-height: 1.2;
+    height: auto;
+    min-height: 50px;
+}
+
+.period-btn:hover {
+    background: #444;
+    border-color: #666;
+    color: #fff;
+}
+
+.period-btn.active {
+    background: #00ff88;
+    border-color: #00ff88;
+    color: #000;
+    font-weight: 600;
+}
+
+.month-dropdown {
+    display: flex;
+    align-items: center;
+}
+
+/* NUCLEAR OPTION: Completely restyle the dropdown */
+.month-dropdown {
+    position: relative;
+    display: inline-block;
+}
+
+.month-select {
+    padding: 8px 35px 8px 12px;
+    background: #333;
+    border: 1px solid #555;
+    color: #ccc;
+    border-radius: 6px;
+    min-width: 150px;
+    font-size: 14px;
+    cursor: pointer;
+    
+    /* Remove all default styling */
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    outline: none;
+}
+
+/* Custom dropdown arrow */
+.month-dropdown::after {
+    content: "▼";
+    font-size: 10px;
+    color: #ccc;
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    pointer-events: none;
+}
+
+/* Force dark theme on dropdown options */
+.month-select option {
+    background: #1a1a1a !important;
+    color: #ccc !important;
+    border: none !important;
+    outline: none !important;
+    padding: 10px !important;
+}
+
+/* Hourly specific styles */
+.hourly-month-dropdown {
+    margin-left: 10px;
+}
+
+.hourly-table-container {
+    margin-top: 20px;
+    overflow-x: auto;
+    padding: 30px;
+}
+
+.hourly-data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+    background: #1a1a1a;
+    min-width: 100%;
+}
+
+.hourly-data-table th,
+.hourly-data-table td {
+    border: 1px solid #555;
+    padding: 6px 8px;
+    text-align: center;
+    min-width: 80px;
+}
+
+.hourly-data-table th {
+    background-color: #2a2a2a;
+    font-weight: 600;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    color: #ffffff;
+}
+
+.hourly-data-table .time-header {
+    background-color: #2d4a2d;
+    position: sticky;
+    left: 0;
+    z-index: 20;
+    min-width: 120px;
+}
+
+.hourly-data-table .date-header {
+    background-color: #2d2d4a;
+    position: sticky;
+    top: 0;
+    z-index: 15;
+}
+
+.hourly-data-table .weekday-cell {
+    font-size: 10px;
+    color: #ccc;
+    background-color: #2d2d4a;
+    font-weight: normal;
+}
+
+.hourly-data-table tr:hover {
+    background-color: #2a2a2a;
+}
+
+.hourly-data-table .time-slot-cell {
+    background-color: #2a2a2a;
+    font-weight: 500;
+    position: sticky;
+    left: 0;
+    z-index: 5;
+}
+
+.hourly-loading {
+    text-align: center;
+    padding: 40px;
+    color: #666;
+}
+
+.hourly-no-data {
+    text-align: center;
+    padding: 40px;
+    color: #999;
+}
+
+.hourly-no-data h3 {
+    color: #ff4444;
+    margin-bottom: 15px;
+}
+
+/* Hourly Table Tooltip Styles */
+.load-cell {
+    position: relative;
+    cursor: help;
+    transition: background-color 0.2s ease;
+}
+
+.load-cell:hover {
+    background-color: #2d4a2d !important;
+}
+
+.weight-tooltip {
+    position: fixed;
+    background: #1a1a1a;
+    border: 2px solid #00ff88;
+    border-radius: 6px;
+    padding: 8px 12px;
+    color: #fff;
+    font-size: 12px;
+    z-index: 1000;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+    pointer-events: none;
+    min-width: 120px;
+    text-align: center;
+}
+
+.weight-tooltip::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 6px solid transparent;
+    border-top-color: #00ff88;
+}
+
+.tooltip-content {
+    line-height: 1.4;
+}
+
+.tooltip-content strong {
+    color: #00ff88;
+    font-weight: 600;
+}
+
+/* Update hourly table note style */
+.hourly-table-container .table-notes {
+    background: #2a2a2a;
+    padding: 15px;
+    border-radius: 8px;
+    border-left: 4px solid #00ff88;
+    margin-top: 20px;
+}
+
+.hourly-table-container .table-notes p {
+    color: #ccc;
+    font-size: 14px;
+    line-height: 1.4;
+    margin: 0;
+}
+
+.hourly-table-container .table-notes strong {
+    color: #00ff88;
+    font-weight: 600;
+}
+
+/* Monthly Stats Content */
+.monthly-stats-content {
+    flex: 1;
+    padding: 0;
+    width: 100%;
+    height: calc(100vh - 80px);
+    overflow-y: auto;
+}
+
+/* Simple Welcome Message */
+.simple-welcome-message {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    height: 100%;
+    padding: 2rem;
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+.simple-welcome-message h2 {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #00ff88;
+    margin-bottom: 1rem;
+    line-height: 1.2;
+}
+
+.simple-welcome-message p {
+    font-size: 1.1rem;
+    color: #ccc;
+    line-height: 1.6;
+    max-width: 500px;
+}
+
+/* Loading State */
+.loading-state {
+    text-align: center;
+    padding: 100px 20px;
+    color: #666;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+.spinner {
+    border: 3px solid #333;
+    border-top: 3px solid #00ff88;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 20px;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Period Summary */
+.period-summary {
+    padding: 30px;
+}
+
+.period-header {
+    text-align: center;
+    margin-bottom: 40px;
+}
+
+.period-header h2 {
+    color: #00ff88;
+    font-size: 24px;
+    margin-bottom: 10px;
+}
+
+.period-info {
+    color: #666;
+    font-size: 14px;
+}
+
+.summary-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+    margin-bottom: 40px;
+}
+
+.summary-card {
+    background: #1a1a1a;
+    padding: 25px;
+    border-radius: 8px;
+    border: 1px solid #333;
+    text-align: center;
+}
+
+.summary-value {
+    color: #00ff88;
+    font-size: 32px;
+    font-weight: 700;
+    margin-bottom: 8px;
+}
+
+.summary-label {
+    color: #ccc;
+    font-size: 14px;
+    margin-bottom: 8px;
+}
+
+.summary-trend {
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.summary-trend.positive {
+    color: #00ff88;
+}
+
+.summary-trend.neutral {
+    color: #ffaa00;
+}
+
+.summary-trend.negative {
+    color: #ff4444;
+}
+
+.period-note {
+    background: #2a2a2a;
+    padding: 20px;
+    border-radius: 8px;
+    border-left: 4px solid #00ff88;
+}
+
+.period-note p {
+    color: #ccc;
+    margin-bottom: 10px;
+    font-size: 14px;
+}
+
+/* Monthly Table Container */
+.monthly-table-container {
+    padding: 30px;
+}
+
+.monthly-table-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    flex-wrap: wrap;
+    gap: 15px;
+}
+
+.monthly-table-title {
+    color: #00ff88;
+    font-size: 20px;
+    font-weight: 600;
+    text-align: center;
+    margin-bottom: 15px;
+    width: 100%;
+}
+
+.table-actions {
+    display: flex;
+    gap: 10px;
+    margin: 0 auto;
+}
+
+.export-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    background: #333;
+    border: 1px solid #555;
+    color: #ccc;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: 14px;
+}
+
+.export-btn:hover {
+    background: #444;
+    border-color: #666;
+    color: #fff;
+}
+
+/* Table Wrapper */
+.table-wrapper {
+    overflow-x: auto;
+    border: 1px solid #333;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    background: #1a1a1a;
+}
+
+/* Updated Table Header Styles */
+.monthly-data-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: #1a1a1a;
+    font-size: 15px;
+    min-width: 100%;
+    table-layout: fixed;
+}
+
+.monthly-data-table th {
+    padding: 8px 4px;
+    text-align: center;
+    font-weight: 600;
+    border: 1px solid #555;
+    white-space: normal;
+    word-wrap: break-word;
+    color: #ffffff !important;
+    font-size: 14px;
+}
+
+/* Column width distribution - Public 3x Private */
+.monthly-data-table th.transaction-date {
+    width: 80px; /* Reduced from 110px */
+}
+
+/* Publicly Collected Waste columns - 3 times wider than Private */
+.monthly-data-table th.header-public:not(.transaction-date) {
+    width: 240px; /* Increased for Public columns */
+}
+
+.monthly-data-table th.header-private {
+    width: 80px; /* Private columns */
+}
+
+.monthly-data-table th.header-total {
+    width: 80px; /* Same as Private */
+}
+
+.monthly-data-table th.header-grease {
+    width: 80px; /* Same as Private */
+}
+
+/* Header color schemes */
+.header-public {
+    background: #2d4a2d !important; /* Dark green */
+}
+
+.header-private {
+    background: #4a2d2d !important; /* Dark red */
+}
+
+.header-total {
+    background: #2d2d4a !important; /* Dark blue */
+}
+
+.header-grease {
+    background: #4a4a2d !important; /* Dark yellow/brown */
+}
+
+/* Column labels row */
+.column-labels th {
+    background: #333 !important;
+    color: #ffffff !important;
+    font-size: 14px !important;
+    padding: 6px 3px !important;
+    font-weight: 500;
+}
+
+/* BOLD ORANGE VERTICAL BORDER between Daily Total and Grease Trap Waste */
+.monthly-data-table th.header-total:last-child {
+    border-right: 3px solid #ffaa00 !important;
+}
+
+.monthly-data-table th.header-grease:first-child {
+    border-left: 3px solid #ffaa00 !important;
+}
+
+.monthly-data-table td.daily-total-last {
+    border-right: 3px solid #ffaa00 !important;
+}
+
+.monthly-data-table td.grease-trap-first {
+    border-left: 3px solid #ffaa00 !important;
+}
+
+/* Transaction date styling */
+.transaction-date {
+    background: #2a2a2a !important;
+    font-weight: 600;
+    color: #ffffff !important;
+}
+
+/* Weekend dates */
+.weekend-date {
+    color: #ff4444 !important;
+    font-weight: bold;
+}
+
+/* Sunday row styling - single bold line below Sunday */
+.sunday-row td {
+    border-bottom: 3px solid #666 !important;
+}
+
+/* Data cells */
+.monthly-data-table td {
+    padding: 6px 4px;
+    text-align: center;
+    border: 1px solid #555;
+    color: #ccc;
+    white-space: nowrap;
+    font-size: 14px;
+}
+
+.monthly-data-table tr:nth-child(even) {
+    background: #222;
+}
+
+.monthly-data-table tr:hover {
+    background: #2a2a2a;
+}
+
+/* Total and average rows */
+.total-row {
+    background: #2a2a2a !important;
+    font-weight: 600;
+}
+
+.average-row {
+    background: #1a2a2a !important;
+    font-weight: 500;
+}
+
+.total-row td {
+    color: #00ff88;
+    border-top: 2px solid #666 !important;
+}
+
+.average-row td {
+    color: #00ccff;
+    border-top: 2px solid #666 !important;
+}
+
+/* Table notes */
+.table-notes {
+    background: #1a1a1a;
+    padding: 15px;
+    border-radius: 8px;
+    border: 1px solid #333;
+    font-size: 13px;
+}
+
+.table-notes p {
+    color: #00ff88;
+    font-weight: 600;
+    margin-bottom: 8px;
+}
+
+.table-notes ul {
+    color: #ccc;
+    line-height: 1.4;
+    padding-left: 20px;
+}
+
+.table-notes li {
+    margin-bottom: 4px;
+}
+
+/* No data message */
+.no-data-message {
+    text-align: center;
+    padding: 60px 20px;
+    color: #ccc;
+}
+
+.no-data-message h3 {
+    color: #ff4444;
+    margin-bottom: 20px;
+    font-size: 18px;
+}
+
+.no-data-message ul {
+    text-align: left;
+    max-width: 400px;
+    margin: 20px auto;
+    color: #999;
+    font-size: 14px;
+}
+
+.no-data-message li {
+    margin-bottom: 8px;
+}
+
+/* Main content area */
+.monthly-main-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+}
+
+/* Make sidebar header clickable */
+.sidebar-header {
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+
+.sidebar-header:hover {
+    background: rgba(0, 255, 136, 0.1);
+}
+
+/* Active state for sidebar actions */
+.action-item.active {
+    background: rgba(0, 255, 136, 0.1);
+    border-left: 3px solid #00ff88;
+}
+
+.action-item.active .action-text {
+    color: #00ff88;
+}
+
+.action-item.active .action-icon {
+    color: #00ff88;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .monthly-stats-header {
+        padding: 15px 20px;
+    }
+    
+    .monthly-header-top {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 15px;
+    }
+    
+    .monthly-stats-header h1 {
+        font-size: 20px;
+    }
+    
+    .period-selector {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 15px;
+        width: 100%;
+    }
+    
+    .period-buttons {
+        width: 100%;
+        justify-content: flex-start;
+    }
+    
+    .month-dropdown {
+        width: 100%;
+    }
+    
+    .month-select {
+        width: 100%;
+    }
+    
+    .monthly-table-container,
+    .hourly-table-container {
+        padding: 15px;
+    }
+    
+    .monthly-table-header {
+        flex-direction: column;
+        align-items: center;
+    }
+    
+    .monthly-data-table,
+    .hourly-data-table {
+        font-size: 11px;
+    }
+    
+    .monthly-data-table th,
+    .hourly-data-table th {
+        font-size: 10px;
+        padding: 6px 3px;
+    }
+    
+    .monthly-data-table td,
+    .hourly-data-table td {
+        font-size: 11px;
+        padding: 5px 3px;
+    }
+    
+    .summary-cards {
+        grid-template-columns: 1fr;
+    }
+    
+    .simple-welcome-message h2 {
+        font-size: 1.75rem;
+    }
+    
+    .simple-welcome-message p {
+        font-size: 1rem;
+    }
+    
+    .monthly-table-title {
+        font-size: 18px;
+    }
+    
+    .hourly-data-table .time-header {
+        min-width: 100px;
+    }
+}
+
+@media (max-width: 480px) {
+    .period-buttons {
+        flex-direction: column;
+        width: 100%;
+    }
+    
+    .period-btn {
+        width: 100%;
+        text-align: center;
+    }
+    
+    .monthly-data-table,
+    .hourly-data-table {
+        font-size: 10px;
+    }
+    
+    .monthly-table-title {
+        font-size: 16px;
+    }
+    
+    .simple-welcome-message {
+        padding: 1rem;
+    }
+    
+    .simple-welcome-message h2 {
+        font-size: 1.5rem;
+    }
+    
+    .table-actions {
+        flex-direction: column;
+        width: 100%;
+    }
+    
+    .export-btn {
+        width: 100%;
+        justify-content: center;
+    }
+    
+    .hourly-data-table .time-header {
+        min-width: 80px;
+        font-size: 9px;
+    }
+}
+
+/* Ensure no white borders anywhere */
+body::-webkit-scrollbar {
+    display: none;
+}
+
+.monthly-stats-content::-webkit-scrollbar {
+    width: 8px;
+}
+
+.monthly-stats-content::-webkit-scrollbar-track {
+    background: #1a1a1a;
+}
+
+.monthly-stats-content::-webkit-scrollbar-thumb {
+    background: #333;
+    border-radius: 4px;
+}
+
+.monthly-stats-content::-webkit-scrollbar-thumb:hover {
+    background: #444;
+}
+
+/* Print styles */
+@media print {
+    .monthly-stats-header,
+    .sidebar,
+    .table-actions,
+    .period-selector {
+        display: none !important;
+    }
+    
+    .monthly-main-content {
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+    
+    .monthly-table-container,
+    .hourly-table-container {
+        padding: 0 !important;
+    }
+    
+    .monthly-data-table,
+    .hourly-data-table {
+        font-size: 11px !important;
+    }
+    
+    .table-notes {
+        page-break-inside: avoid;
+    }
+}
