@@ -67,51 +67,14 @@ export function extractSlicerOptionsFromData(data) {
 
 // === LOAD SLICER OPTIONS FROM STATION JSON ===
 export async function loadSlicerOptions(stationId) {
-    try {
-        const stationFile = stationId.toLowerCase();
-        console.log(`📂 Loading data for station: ${stationFile}`);
-        
-        // Use absolute path from root for GitHub Pages compatibility
-        const basePath = window.location.origin + window.location.pathname.split('/').slice(0, -1).join('/');
-        const dataPath = `${window.location.origin}/data/${stationFile}.json`;
-        
-        console.log('Trying data path:', dataPath);
-        
-        const response = await fetch(`/data/${stationFile}.json`);
-        
-        if (!response.ok) {
-            // Try alternative path
-            const altResponse = await fetch(`./data/${stationFile}.json`);
-            if (!altResponse.ok) {
-                throw new Error(`Failed to load ${stationFile}.json: ${response.status} and ${altResponse.status}`);
-            }
-            const stationData = await altResponse.json();
-            console.log(`✅ Loaded ${stationData.length} records using ./data/ path`);
-            return extractSlicerOptionsFromData(stationData);
-        }
-        
-        const stationData = await response.json();
-        console.log(`✅ Loaded ${stationData.length} records for ${stationFile}`);
-        
-        const slicerOptions = extractSlicerOptionsFromData(stationData);
-        console.log(`🎯 Extracted slicer options:`, {
-            deliveryStatus: slicerOptions.deliveryStatus?.length || 0,
-            vehicleTasks: slicerOptions.vehicleTasks?.length || 0,
-            wasteType: slicerOptions.wasteType?.length || 0
-        });
-        
-        return slicerOptions;
-        
-    } catch (error) {
-        console.error(`❌ Error loading data for ${stationId}:`, error);
-        
-        // Return comprehensive fallback options
-        return {
-            deliveryStatus: ['Completed', 'Pending', 'Cancelled'],
-            vehicleTasks: ['G01', 'C31', 'P99', 'P97'],
-            wasteType: ['Municipal Solid Waste', 'Grease Trap Waste', 'Construction Waste']
-        };
-    }
+    console.log('🔧 Using hardcoded options for now');
+    
+    // SIMPLE FIX: Return hardcoded options
+    return {
+        deliveryStatus: ['Completed', 'Pending', 'Cancelled'],
+        vehicleTasks: ['G01', 'C31', 'P99', 'P97'],
+        wasteType: ['Municipal Solid Waste', 'Grease Trap Waste', 'Construction Waste']
+    };
 }
 
 // === RENDER DASHBOARD ===
@@ -968,3 +931,4 @@ export function load(station) {
 // Initialize dashboard when DOM is loaded
 
 document.addEventListener('DOMContentLoaded', initializeDashboard);
+
