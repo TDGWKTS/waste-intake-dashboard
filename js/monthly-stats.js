@@ -1,4 +1,4 @@
-﻿// monthly-stats.js - Updated with correct import paths
+// monthly-stats.js - Updated with correct import paths
 import { stations } from './utils.js';  // Change this
 import { 
     exportHourlyToPdf, 
@@ -316,11 +316,11 @@ function processHourlyData(month, year) {
             let timeSlot = '';
             
             // Determine time slot
-            if (totalMinutes >= (4 * 60 + 30) && totalMinutes <= (6 * 60 + 59)) {
+            if (totalMinutes >= (4 * 60 + 20) && totalMinutes <= (6 * 60 + 59)) {
                 timeSlot = '04:30 - 06:59';
             } else if (totalMinutes >= (23 * 60 + 30) && totalMinutes <= (23 * 60 + 59)) {
                 timeSlot = '23:30 - 04:29'; // This covers 23:30-23:59
-            } else if (totalMinutes >= 0 && totalMinutes <= (4 * 60 + 29)) {
+            } else if (totalMinutes >= 0 && totalMinutes <= (4 * 60 + 19)) {
                 timeSlot = '23:30 - 04:29'; // This covers 00:00-04:29 (next day)
             } else {
                 // Hourly slots from 07:00 to 23:00
@@ -506,13 +506,7 @@ function showHourlyTable(month, stationName, hourlyData) {
                 </table>
             </div>
             
-            <div class="table-notes">
-                <p><strong>Note:</strong> This table shows <strong>Number of Loads</strong> for completed transactions with vehicle tasks: P99 私人車傾倒, G01 食環署傾倒, and C31 食環署外判車傾倒. Hover over cells to see total weight.</p>
-                <p>Weekend dates (Saturday/Sunday) are shown in <span style="color: #ff4444;">red</span>. Sunday columns have a bold right border.</p>
-                <p><strong>Total:</strong> Sum of loads per time slot across all dates | <strong>Average:</strong> Average loads per time slot per day</p>
-            </div>
-        </div>
-    `;
+            `;
     
     statsContent.innerHTML = tableHTML;
     
