@@ -928,7 +928,12 @@ export function load(station) {
     }
 }
 
+
+fetch('./data/wkts.json').then(r => console.log('./data/wkts.json:', r.status));
+fetch('data/wkts.json').then(r => console.log('data/wkts.json:', r.status));
+fetch('../data/wkts.json').then(r => console.log('../data/wkts.json:', r.status));
 // Initialize dashboard when DOM is loaded
 
 document.addEventListener('DOMContentLoaded', initializeDashboard);
+
 
