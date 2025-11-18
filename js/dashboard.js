@@ -71,7 +71,7 @@ export async function loadSlicerOptions(stationId) {
         const stationFile = stationId.toLowerCase();
         console.log(`📂 Loading data for station: ${stationFile}`);
         
-        const response = await fetch(`../data/${stationFile}.json`);
+        const response = await fetch(`./data/${stationFile}.json`);
         
         if (!response.ok) {
             throw new Error(`Failed to load ${stationFile}.json: ${response.status}`);
@@ -631,7 +631,7 @@ export async function loadDashboardData() {
             console.log(`Loaded ${currentData.length} records from localStorage for station ${selectedStationId}`);
         } else {
             const stationFile = selectedStationId.toLowerCase();
-            const response = await fetch(`../data/${stationFile}.json`);
+            const response = await fetch(`./data/${stationFile}.json`);
             if (response.ok) {
                 currentData = await response.json();
                 console.log(`Loaded ${currentData.length} records from JSON file for station ${selectedStationId}`);
@@ -951,4 +951,5 @@ export function load(station) {
 }
 
 // Initialize dashboard when DOM is loaded
+
 document.addEventListener('DOMContentLoaded', initializeDashboard);
