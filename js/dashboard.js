@@ -1,4 +1,4 @@
-﻿// dashboard.js - Main dashboard coordinator
+// dashboard.js - Main dashboard coordinator
 import { stations } from './utils.js';
 
 // === DASHBOARD STATE (Shared across modules) ===
@@ -478,13 +478,16 @@ export async function initializeDashboard() {
     
     document.getElementById('app').innerHTML = renderDashboard();
     
+    // ✅ ADD THIS: Load data FIRST before setting up listeners
+    await loadDashboardData();
+    
     // Setup all event listeners
     await setupAllEventListeners();
     
     // Ensure welcome section is shown initially
     showWelcomeSection();
     
-    console.log('Dashboard initialized successfully - showing welcome section only');
+    console.log('✅ Dashboard initialized successfully WITH DATA LOADED - showing welcome section only');
 }
 
 // === SETUP ALL EVENT LISTENERS ===
@@ -951,5 +954,4 @@ export function load(station) {
 }
 
 // Initialize dashboard when DOM is loaded
-
 document.addEventListener('DOMContentLoaded', initializeDashboard);
