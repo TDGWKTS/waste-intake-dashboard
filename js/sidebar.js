@@ -1,5 +1,5 @@
 ﻿// sidebar.js - Fixed version without problematic imports
-import { handleApplyFilters } from './dashboard.js';
+import { selectStation, applyFilters } from './dashboard.js';
 import { setCurrentStation, updateStatsCards } from './stats.js';
 import { setCurrentStation as setSlicerStation } from './slicer.js';
 
@@ -159,5 +159,4 @@ function logout() {
     localStorage.removeItem('stationName');
     localStorage.removeItem('loginTime');
     window.location.href = 'index.html';
-
 }
