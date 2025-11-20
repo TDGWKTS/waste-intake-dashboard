@@ -1,4 +1,4 @@
-// dashboard.js - Main dashboard coordinator
+﻿// dashboard.js - Main dashboard coordinator
 import { stations } from './utils.js';
 
 // === DASHBOARD STATE (Shared across modules) ===
@@ -509,10 +509,20 @@ async function setupAllEventListeners() {
         const { setupSlicerEventListeners, initializeSlicers } = await import('./slicer.js');
         setupSlicerEventListeners();
         
-        // Initialize slicers with current station data
+        // ✅ FIX: Initialize slicers with CURRENT DATA, not fresh fetch
         const stationId = localStorage.getItem('stationId') || 'wkts';
-        const slicerOptions = await loadSlicerOptions(stationId);
-        initializeSlicers(slicerOptions);
+        
+        if (currentData && currentData.length > 0) {
+            // Use already loaded data
+            const slicerOptions = extractSlicerOptionsFromData(currentData);
+            initializeSlicers(slicerOptions);
+            console.log(`✅ Slicers initialized with ${currentData.length} existing records`);
+        } else {
+            // Fallback to fetching if no data loaded
+            const slicerOptions = await loadSlicerOptions(stationId);
+            initializeSlicers(slicerOptions);
+            console.log(`✅ Slicers initialized with fetched data`);
+        }
         
         console.log('✅ Slicer event listeners setup');
     } catch (error) {
@@ -627,20 +637,25 @@ export function enforceStationCheckboxState() {
 export async function loadDashboardData() {
     try {
         const selectedStationId = localStorage.getItem('stationId') || 'wkts';
+        console.log(`🔄 Loading dashboard data for station: ${selectedStationId}`);
+        
         const localStorageData = localStorage.getItem(getKey(selectedStationId));
         
         if (localStorageData) {
             currentData = JSON.parse(localStorageData);
-            console.log(`Loaded ${currentData.length} records from localStorage for station ${selectedStationId}`);
+            console.log(`✅ Loaded ${currentData.length} records from localStorage for station ${selectedStationId}`);
         } else {
             const stationFile = selectedStationId.toLowerCase();
+            console.log(`📂 Attempting to fetch from: ./data/${stationFile}.json`);
+            
             const response = await fetch(`./data/${stationFile}.json`);
+            
             if (response.ok) {
                 currentData = await response.json();
-                console.log(`Loaded ${currentData.length} records from JSON file for station ${selectedStationId}`);
+                console.log(`✅ Loaded ${currentData.length} records from JSON file for station ${selectedStationId}`);
             } else {
                 currentData = [];
-                console.log(`No data found for station ${selectedStationId}`);
+                console.log(`❌ No data found for station ${selectedStationId} - response status: ${response.status}`);
             }
         }
         
@@ -649,7 +664,7 @@ export async function loadDashboardData() {
         console.log(`📊 Initialized filteredData as empty - waiting for filters to be applied`);
         
     } catch (error) {
-        console.error('Error loading dashboard data:', error);
+        console.error('❌ Error loading dashboard data:', error);
         currentData = [];
         filteredData = [];
     }

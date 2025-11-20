@@ -1,11 +1,17 @@
-// monthly-stats.js - Updated with correct import paths
-import { stations } from './utils.js';  // Change this
+﻿// monthly-stats.js - Updated with Waste Intake button
+import { stations } from './utils.js';
 import { 
     exportHourlyToPdf, 
     exportHourlyToExcel, 
     exportMonthlyToPdf, 
     exportMonthlyToExcel 
 } from './export.js';
+
+import { 
+    loadPeriodStats, 
+    setWktsData, 
+    setStations 
+} from './period-table.js';
 
 // Monthly Stats Data Structure
 const monthlyData = {};
@@ -19,6 +25,11 @@ async function loadWktsData() {
         const response = await fetch('data/wkts.json');
         wktsData = await response.json();
         console.log('✅ WKTS data loaded successfully:', wktsData.length, 'records');
+        
+        // Set the data for period-table.js AFTER it's loaded
+        setWktsData(wktsData);
+        setStations(stations);
+        
         return wktsData;
     } catch (error) {
         console.error('❌ Error loading WKTS data:', error);
@@ -47,10 +58,10 @@ function processMonthData(month, year) {
             }
             
             const day = parseInt(dateParts[0]);
-            const month = parseInt(dateParts[1]);
-            const year = parseInt(dateParts[2]);
+            const recordMonth = parseInt(dateParts[1]);
+            const recordYear = parseInt(dateParts[2]);
             
-            const recordDate = new Date(year, month - 1, day);
+            const recordDate = new Date(recordYear, recordMonth - 1, day);
             
             return recordDate.getMonth() === monthIndex && recordDate.getFullYear() === year;
             
@@ -63,12 +74,8 @@ function processMonthData(month, year) {
     console.log(`Processing ${month} ${year}: ${monthRecords.length} records found`);
     
     if (monthRecords.length === 0) {
-        // Try with current year as fallback
-        const currentYear = new Date().getFullYear();
-        if (year !== currentYear) {
-            console.log(`Trying with current year ${currentYear} as fallback`);
-            return processMonthData(month, currentYear);
-        }
+        console.log(`No records found for ${month} ${year}`);
+        return [];
     }
     
     // Group records by date
@@ -135,14 +142,14 @@ function processMonthData(month, year) {
                 // 1. Domestic Waste Logic (04:25 - 07:25)
                  if (vehicleTask === 'C31 食環署外判車傾倒' && 
                     timeInMinutes >= (4 * 60 + 25) && timeInMinutes <= (7 * 60 + 25) &&
-                    wasteType !== 'D06.00') {
+                    wasteType !== '家居垃圾 - 坑渠垃圾、砂礫、沙泥和碎石') {
                     dayData.domesticWasteLoads++;
                     dayData.domesticWasteTonnes += weight;
                 }
                 
-                // 2. Gully Waste Logic (04:25 - 07:25 + D06.00)
+                // 2. Gully Waste Logic (04:25 - 07:25 + 家居垃圾 - 坑渠垃圾、砂礫、沙泥和碎石)
                 if (vehicleTask === 'C31 食環署外判車傾倒' && 
-                    wasteType === 'D06.00' &&
+                    wasteType === '家居垃圾 - 坑渠垃圾、砂礫、沙泥和碎石' &&
                     timeInMinutes >= (4 * 60 + 25) && timeInMinutes <= (7 * 60 + 25)) {
                     dayData.gullyWasteLoads++;
                     dayData.gullyWasteTonnes += weight;
@@ -181,7 +188,7 @@ function processMonthData(month, year) {
         dayData.dailyTotalLoads = dayData.extendedLoads + dayData.publicNormalLoads + dayData.privateLoads;
         dayData.dailyTotalTonnes = dayData.extendedTonnes + dayData.publicNormalTonnes + dayData.privateTonnes;
         
-        // Round tonnes to 1 decimal place
+        // Round tonnes to 2 decimal places
         dayData.domesticWasteTonnes = dayData.domesticWasteTonnes.toFixed(2);
         dayData.gullyWasteTonnes = dayData.gullyWasteTonnes.toFixed(2);
         dayData.extendedTonnes = dayData.extendedTonnes.toFixed(2);
@@ -251,10 +258,10 @@ function processHourlyData(month, year) {
             }
             
             const day = parseInt(dateParts[0]);
-            const month = parseInt(dateParts[1]);
-            const year = parseInt(dateParts[2]);
+            const recordMonth = parseInt(dateParts[1]);
+            const recordYear = parseInt(dateParts[2]);
             
-            const recordDate = new Date(year, month - 1, day);
+            const recordDate = new Date(recordYear, recordMonth - 1, day);
             
             return recordDate.getMonth() === monthIndex && recordDate.getFullYear() === year;
             
@@ -374,74 +381,60 @@ function calculateHourlyTotals(timeSlots, dates, dailyData) {
     
     return { totals, averages };
 }
+
 // Function to get weekday from date string (DD/MM/YYYY)
-    function getWeekday(dateStr) {
-        const [day, month, year] = dateStr.split('/').map(Number);
-        const date = new Date(year, month - 1, day);
-        const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-        return weekdays[date.getDay()];
-    }
-    
+function getWeekday(dateStr) {
+    const [day, month, year] = dateStr.split('/').map(Number);
+    const date = new Date(year, month - 1, day);
+    const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    return weekdays[date.getDay()];
+}
+
 // Function to show hourly table - SHOW LOADS WITH WEIGHT TOOLTIPS AND WEEKEND STYLING
-function showHourlyTable(month, stationName, hourlyData) {
+function showHourlyTable(month, stationName, hourlyData, year) {
     const { timeSlots, dailyData, dailyWeights, dates } = hourlyData;
     const monthName = month.charAt(0).toUpperCase() + month.slice(1);
-    const year = new Date().getFullYear();
     
     // Calculate totals and averages
     const { totals, averages } = calculateHourlyTotals(timeSlots, dates, dailyData);
     
     const statsContent = document.getElementById('monthlyStatsContent');
     
-        let tableHTML = `
-        <div class="hourly-table-container">
-            <div class="monthly-table-header">
-                <div class="monthly-table-title">Hourly WCV Intake for ${monthName} ${year} - ${stationName}</div>
-                <div class="table-actions">
-                    <button class="export-btn" id="exportHourlyPdf">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                            <polyline points="14 2 14 8 20 8"/>
-                            <line x1="16" y1="13" x2="8" y2="13"/>
-                            <line x1="16" y1="17" x2="8" y2="17"/>
-                            <polyline points="10 9 9 9 8 9"/>
-                        </svg>
-                        Export PDF
-                    </button>
-                    <button class="export-btn" id="exportHourlyExcel">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                            <polyline points="14 2 14 8 20 8"/>
-                            <path d="M16 13H8"/>
-                            <path d="M16 17H8"/>
-                            <path d="M10 9H8"/>
-                        </svg>
-                        Export Excel
-                    </button>
-                </div>
+    let tableHTML = `
+    <div class="hourly-table-container">
+        <div class="monthly-table-header">
+            <div class="monthly-table-title">Hourly WCV Intake for ${monthName} ${year} - ${stationName}</div>
+            <div class="table-actions">
+                <button class="export-btn" id="exportHourlyPdf">
+                    Export to PDF
+                </button>
+                <button class="export-btn" id="exportHourlyExcel">
+                    Export to Excel
+                </button>
             </div>
+        </div>
             
-            <div class="table-wrapper">
-                <table class="hourly-data-table">
-                    <thead>
-                        <tr>
-                            <th class="time-header">Time</th>
-                            ${dates.map((date, index) => {
-                                const isWeekendDay = isWeekend(date);
-                                const isSundayDay = isSunday(date);
-                                const weekendClass = isWeekendDay ? 'weekend-date' : '';
-                                const sundayClass = isSundayDay ? 'sunday-column' : '';
-                                return `
-                                <th class="date-header ${weekendClass} ${sundayClass}" colspan="1" data-date="${date}">
-                                    ${date}<br>
-                                    <span class="weekday-cell ${weekendClass}">${getWeekday(date)}</span>
-                                </th>
-                            `}).join('')}
-                            <th class="summary-header total-column">Total</th>
-                            <th class="summary-header average-column">Average</th>
-                        </tr>
-                    </thead>
-                    <tbody>
+        <div class="table-wrapper">
+            <table class="hourly-data-table">
+                <thead>
+                    <tr>
+                        <th class="time-header">Time</th>
+                        ${dates.map((date, index) => {
+                            const isWeekendDay = isWeekend(date);
+                            const isSundayDay = isSunday(date);
+                            const weekendClass = isWeekendDay ? 'weekend-date' : '';
+                            // KEEP weekend classes for red text color, but remove background colors in CSS
+                            return `
+                            <th class="date-header ${weekendClass}" colspan="1" data-date="${date}">
+                                ${date}<br>
+                                <span class="weekday-cell ${weekendClass}">${getWeekday(date)}</span>
+                            </th>
+                        `}).join('')}
+                        <th class="summary-header total-column">Total</th>
+                        <th class="summary-header average-column">Average</th>
+                    </tr>
+                </thead>
+                <tbody>
     `;
     
     // Add data rows for each time slot - SHOW LOAD COUNTS
@@ -456,18 +449,17 @@ function showHourlyTable(month, stationName, hourlyData) {
             const loadCount = dailyData[date][timeSlot];
             const weight = dailyWeights[date][timeSlot];
             const isWeekendDay = isWeekend(date);
-            const isSundayDay = isSunday(date);
             const weekendClass = isWeekendDay ? 'weekend-data' : '';
-            const sundayClass = isSundayDay ? 'sunday-column-data' : '';
+            // KEEP weekend class for red text color, but remove background colors in CSS
             
             if (loadCount > 0) {
-                tableHTML += `<td class="load-cell ${weekendClass} ${sundayClass}" data-weight="${weight.toFixed(2)}t" data-loads="${loadCount} loads" data-date="${date}">
+                tableHTML += `<td class="load-cell ${weekendClass}" data-weight="${weight.toFixed(2)}t" data-loads="${loadCount} loads" data-date="${date}">
                     ${loadCount}
                 </td>`;
                 rowTotal += loadCount;
                 rowCount++;
             } else {
-                tableHTML += `<td class="${weekendClass} ${sundayClass}" data-date="${date}">-</td>`;
+                tableHTML += `<td class="${weekendClass}" data-date="${date}">-</td>`;
             }
         });
         
@@ -505,8 +497,8 @@ function showHourlyTable(month, stationName, hourlyData) {
                     </tfoot>
                 </table>
             </div>
-            
-            `;
+        </div>
+    `;
     
     statsContent.innerHTML = tableHTML;
     
@@ -514,7 +506,7 @@ function showHourlyTable(month, stationName, hourlyData) {
     setupHourlyTooltips();
     
     // Add export button event listeners
-    setupHourlyExportButtons();
+    setupHourlyExportButtons(month, year);
 }
 
 // Function to setup hover tooltips for hourly table
@@ -572,52 +564,42 @@ function setupHourlyTooltips() {
 }
 
 // Function to setup hourly export buttons
-function setupHourlyExportButtons() {
+function setupHourlyExportButtons(month, year) {
     const exportPdf = document.getElementById('exportHourlyPdf');
     const exportExcel = document.getElementById('exportHourlyExcel');
     
     if (exportPdf) {
         exportPdf.addEventListener('click', () => {
-            const monthSelect = document.getElementById('hourlyMonthSelect');
-            const month = monthSelect.value;
             const selectedStationId = localStorage.getItem('stationId') || 'wkts';
             const selectedStation = stations.find(s => s.id.toLowerCase() === selectedStationId.toLowerCase());
             const stationName = selectedStation ? selectedStation.name.split(' - ')[0] : 'Unknown Station';
             
-            // Get current hourly data
-            const currentYear = new Date().getFullYear();
-            let hourlyData = processHourlyData(month, currentYear);
-            if (hourlyData.dates.length === 0) {
-                hourlyData = processHourlyData(month, currentYear - 1);
-            }
+            // Get current hourly data for the specific year
+            const hourlyData = processHourlyData(month, year);
             
+            // Check if we have data before exporting
             if (hourlyData.dates.length > 0) {
-                exportHourlyToPdf(month, stationName, hourlyData, getWeekday, isWeekend, calculateHourlyTotals);
+                exportHourlyToPdf(month, stationName, hourlyData, getWeekday, isWeekend, calculateHourlyTotals, year);
             } else {
-                alert('No data available to export for the selected month.');
+                alert('No data available to export for the selected month and year.');
             }
         });
     }
     
     if (exportExcel) {
         exportExcel.addEventListener('click', () => {
-            const monthSelect = document.getElementById('hourlyMonthSelect');
-            const month = monthSelect.value;
             const selectedStationId = localStorage.getItem('stationId') || 'wkts';
             const selectedStation = stations.find(s => s.id.toLowerCase() === selectedStationId.toLowerCase());
             const stationName = selectedStation ? selectedStation.name.split(' - ')[0] : 'Unknown Station';
             
-            // Get current hourly data
-            const currentYear = new Date().getFullYear();
-            let hourlyData = processHourlyData(month, currentYear);
-            if (hourlyData.dates.length === 0) {
-                hourlyData = processHourlyData(month, currentYear - 1);
-            }
+            // Get current hourly data for the specific year
+            const hourlyData = processHourlyData(month, year);
             
+            // Check if we have data before exporting
             if (hourlyData.dates.length > 0) {
-                exportHourlyToExcel(month, stationName, hourlyData, getWeekday, calculateHourlyTotals);
+                exportHourlyToExcel(month, stationName, hourlyData, getWeekday, calculateHourlyTotals, year);
             } else {
-                alert('No data available to export for the selected month.');
+                alert('No data available to export for the selected month and year.');
             }
         });
     }
@@ -638,30 +620,26 @@ async function loadHourlyStats(month) {
         </div>
     `;
     
-    // Try current year first, then fallback to any available year
+    // Use current year only - NO FALLBACK
     const currentYear = new Date().getFullYear();
-    let hourlyData = processHourlyData(month, currentYear);
+    const hourlyData = processHourlyData(month, currentYear);
     
-    // If no data for current year, try previous year
-    if (hourlyData.dates.length === 0) {
-        console.log(`No hourly data for ${month} ${currentYear}, trying ${currentYear - 1}`);
-        hourlyData = processHourlyData(month, currentYear - 1);
-    }
+    // Check if we have data for the requested year
+    const hasData = hourlyData.dates.length > 0;
     
-    // If still no data, show message
-    if (hourlyData.dates.length === 0) {
+    if (!hasData) {
         statsContent.innerHTML = `
             <div class="hourly-no-data">
                 <h3>No Hourly WCV Intake Data Available</h3>
-                <p>No completed transaction records found for ${month} with vehicle tasks: P99 私人車傾倒, G01 食環署傾倒, or C31 食環署外判車傾倒.</p>
-                <p>Please check if the data file contains records for this month.</p>
+                <p>No completed transaction records found for ${month} ${currentYear} with vehicle tasks: P99 私人車傾倒, G01 食環署傾倒, or C31 食環署外判車傾倒.</p>
+                <p>Please check if the data file contains records for this month and year.</p>
             </div>
         `;
         return;
     }
     
     // Show the hourly table with data
-    showHourlyTable(month, stationName, hourlyData);
+    showHourlyTable(month, stationName, hourlyData, currentYear);
 }
 
 // Function to load monthly stats
@@ -679,25 +657,21 @@ async function loadMonthStats(month) {
         </div>
     `;
     
-    // Try current year first, then fallback to any available year
+    // Use current year only - NO FALLBACK
     const currentYear = new Date().getFullYear();
-    let monthData = await processMonthData(month, currentYear);
+    const monthData = processMonthData(month, currentYear);
     
-    // If no data for current year, try previous year
-    if (monthData.length === 0) {
-        console.log(`No data for ${month} ${currentYear}, trying ${currentYear - 1}`);
-        monthData = await processMonthData(month, currentYear - 1);
-    }
+    // Check if we have data for the requested year
+    const hasData = monthData.length > 0;
     
-    // If still no data, show message
-    if (monthData.length === 0) {
+    if (!hasData) {
         statsContent.innerHTML = `
             <div class="no-data-message">
                 <h3>No Data Available</h3>
-                <p>No transaction records found for ${month}.</p>
+                <p>No transaction records found for ${month} ${currentYear}.</p>
                 <p>Please check if:</p>
                 <ul>
-                    <li>The data file contains records for this month</li>
+                    <li>The data file contains records for this month and year</li>
                     <li>The date formats in the data are correct</li>
                     <li>There are completed transactions (交收狀態: 完成)</li>
                 </ul>
@@ -707,13 +681,12 @@ async function loadMonthStats(month) {
     }
     
     // Show the monthly table with data
-    showMonthlyTable(month, stationName, monthData);
+    showMonthlyTable(month, stationName, monthData, currentYear);
 }
 
 // Show Monthly Table with Data - CORRECTED HEADER FORMAT
-function showMonthlyTable(month, stationName, monthData) {
+function showMonthlyTable(month, stationName, monthData, year) {
     const monthName = month.charAt(0).toUpperCase() + month.slice(1);
-    const year = new Date().getFullYear();
     
     // Calculate totals and averages
     const totals = calculateTotals(monthData);
@@ -722,141 +695,127 @@ function showMonthlyTable(month, stationName, monthData) {
     const statsContent = document.getElementById('monthlyStatsContent');
     
     statsContent.innerHTML = `
-    <div class="monthly-table-container">
-        <div class="monthly-table-header">
-            <div class="monthly-table-title">Daily Transaction Log for MSW and GTW for ${monthName} ${year}</div>
-            <div class="table-actions">
-                <button class="export-btn" id="exportPdf">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                        <polyline points="14 2 14 8 20 8"/>
-                        <line x1="16" y1="13" x2="8" y2="13"/>
-                        <line x1="16" y1="17" x2="8" y2="17"/>
-                        <polyline points="10 9 9 9 8 9"/>
-                    </svg>
-                    Export PDF
-                </button>
-                <button class="export-btn" id="exportExcel">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                        <polyline points="14 2 14 8 20 8"/>
-                        <path d="M16 13H8"/>
-                        <path d="M16 17H8"/>
-                        <path d="M10 9H8"/>
-                    </svg>
-                    Export Excel
-                </button>
-            </div>
-        </div>
-        
-        <div class="table-wrapper">
-            <table class="monthly-data-table">
-                <thead>
-                    <!-- Row 1 -->
-                    <tr>
-                        <th rowspan="4" class="transaction-date header-public">Transaction Date</th>
-                        <th colspan="6" class="header-public">Publicly Collected Waste</th>
-                        <th colspan="2" class="header-private">Privately Collected Waste</th>
-                        <th colspan="2" class="header-total">Daily Total</th>
-                        <th colspan="2" class="header-grease">Grease Trap Waste</th>
-                    </tr>
-                    <!-- Row 2 -->
-                    <tr>
-                        <th colspan="4" class="header-public">Extended Reception Hours (0430-0730)</th>
-                        <th colspan="2" class="header-public">Normal (0730-2330)</th>
-                        <th colspan="2" class="header-private">Normal (0730-2330)</th>
-                        <th colspan="2" class="header-total"></th>
-                        <th colspan="2" class="header-grease"></th>
-                    </tr>
-                    <!-- Row 3 -->
-                    <tr>
-                        <th colspan="2" class="header-public">Domestic Waste</th>
-                        <th colspan="2" class="header-public">Gully Waste (D06)</th>
-                        <th colspan="2" class="header-public"></th>
-                        <th colspan="2" class="header-private"></th>
-                        <th colspan="2" class="header-total"></th>
-                        <th colspan="2" class="header-grease"></th>
-                    </tr>
-                    <!-- Row 4 -->
-                    <tr class="column-labels">
-                        <th class="header-public">No. of Loads</th>
-                        <th class="header-public">Tonnes</th>
-                        <th class="header-public">No. of Loads</th>
-                        <th class="header-public">Tonnes</th>
-                        <th class="header-public">No. of Loads</th>
-                        <th class="header-public">Tonnes</th>
-                        <th class="header-private">No. of Loads</th>
-                        <th class="header-private">Tonnes</th>
-                        <th class="header-total">No. of Loads</th>
-                        <th class="header-total">Tonnes</th>
-                        <th class="header-grease grease-trap-border">No. of Loads</th>
-                        <th class="header-grease">Tonnes</th>
-                    </tr>
-                </thead>
-               
-                <tbody>
-                    ${monthData.map((day, index) => {
-                        const date = new Date(day.date.split('/').reverse().join('-'));
-                        const isSunday = date.getDay() === 0;
-                        
-                        return `
-                            <tr class="${isSunday ? 'sunday-row' : ''}">
-                                <td class="transaction-date ${day.isWeekend ? 'weekend-date' : ''}">${day.date}</td>
-                                <td>${day.domesticWasteLoads}</td>
-                                <td>${day.domesticWasteTonnes}</td>
-                                <td>${day.gullyWasteLoads}</td>
-                                <td>${day.gullyWasteTonnes}</td>
-                                <td>${day.publicNormalLoads}</td>
-                                <td>${day.publicNormalTonnes}</td>
-                                <td>${day.privateLoads}</td>
-                                <td>${day.privateTonnes}</td>
-                                <td>${day.dailyTotalLoads}</td>
-                                <td>${day.dailyTotalTonnes}</td>
-                                <td>${day.greaseTrapLoads}</td>
-                                <td>${day.greaseTrapTonnes}</td>
-                            </tr>
-                        `;
-                    }).join('')}
-                </tbody>
-                <tfoot>
-                    <tr class="total-row">
-                        <td class="transaction-date">Total</td>
-                        <td>${totals.domesticWasteLoads}</td>
-                        <td>${totals.domesticWasteTonnes}</td>
-                        <td>${totals.gullyWasteLoads}</td>
-                        <td>${totals.gullyWasteTonnes}</td>
-                        <td>${totals.publicNormalLoads}</td>
-                        <td>${totals.publicNormalTonnes}</td>
-                        <td>${totals.privateLoads}</td>
-                        <td>${totals.privateTonnes}</td>
-                        <td>${totals.dailyTotalLoads}</td>
-                        <td>${totals.dailyTotalTonnes}</td>
-                        <td class="grease-trap-border">${totals.greaseTrapLoads}</td>
-                        <td>${totals.greaseTrapTonnes}</td>
-                    </tr>
-                    <tr class="average-row">
-                        <td class="transaction-date">Daily Average</td>
-                        <td>${averages.domesticWasteLoads}</td>
-                        <td>${averages.domesticWasteTonnes}</td>
-                        <td>${averages.gullyWasteLoads}</td>
-                        <td>${averages.gullyWasteTonnes}</td>
-                        <td>${averages.publicNormalLoads}</td>
-                        <td>${averages.publicNormalTonnes}</td>
-                        <td>${averages.privateLoads}</td>
-                        <td>${averages.privateTonnes}</td>
-                        <td>${averages.dailyTotalLoads}</td>
-                        <td>${averages.dailyTotalTonnes}</td>
-                        <td class="grease-trap-border">${averages.greaseTrapLoads}</td>
-                        <td>${averages.greaseTrapTonnes}</td>
-                    </tr>
-                </tfoot>
-            </table>
+<div class="monthly-table-container">
+    <div class="monthly-table-header">
+        <div class="monthly-table-title">Daily Transaction Log for MSW and GTW for ${monthName} ${year}</div>
+        <div class="table-actions">
+            <button class="export-btn" id="exportPdf">
+                Export to PDF
+            </button>
+            <button class="export-btn" id="exportExcel">
+                Export to Excel
+            </button>
         </div>
     </div>
+        
+    <div class="table-wrapper">
+        <table class="monthly-data-table">
+            <thead>
+                <!-- Row 1 -->
+                <tr>
+                    <th rowspan="4" class="transaction-date header-public">Transaction Date</th>
+                    <th colspan="6" class="header-public">Publicly Collected Waste</th>
+                    <th colspan="2" class="header-private">Privately Collected Waste</th>
+                    <th colspan="2" class="header-total">Daily Total</th>
+                    <th colspan="2" class="header-grease">Grease Trap Waste</th>
+                </tr>
+                <!-- Row 2 -->
+                <tr>
+                    <th colspan="4" class="header-public">Extended Reception Hours (0430-0730)</th>
+                    <th colspan="2" class="header-public">Normal (0730-2330)</th>
+                    <th colspan="2" class="header-private">Normal (0730-2330)</th>
+                    <th colspan="2" class="header-total"></th>
+                    <th colspan="2" class="header-grease"></th>
+                </tr>
+                <!-- Row 3 -->
+                <tr>
+                    <th colspan="2" class="header-public">Domestic Waste</th>
+                    <th colspan="2" class="header-public">Gully Waste (D06)</th>
+                    <th colspan="2" class="header-public"></th>
+                    <th colspan="2" class="header-private"></th>
+                    <th colspan="2" class="header-total"></th>
+                    <th colspan="2" class="header-grease"></th>
+                </tr>
+                <!-- Row 4 -->
+                <tr class="column-labels">
+                    <th class="header-public">No. of Loads</th>
+                    <th class="header-public">Tonnes</th>
+                    <th class="header-public">No. of Loads</th>
+                    <th class="header-public">Tonnes</th>
+                    <th class="header-public">No. of Loads</th>
+                    <th class="header-public">Tonnes</th>
+                    <th class="header-private">No. of Loads</th>
+                    <th class="header-private">Tonnes</th>
+                    <th class="header-total">No. of Loads</th>
+                    <th class="header-total">Tonnes</th>
+                    <th class="header-grease grease-trap-border">No. of Loads</th>
+                    <th class="header-grease">Tonnes</th>
+                </tr>
+            </thead>
+           
+            <tbody>
+                ${monthData.map((day, index) => {
+                    const date = new Date(day.date.split('/').reverse().join('-'));
+                    const isSunday = date.getDay() === 0;
+                    
+                    return `
+                        <tr class="${isSunday ? 'sunday-row' : ''}">
+                            <td class="transaction-date ${day.isWeekend ? 'weekend-date' : ''}">${day.date}</td>
+                            <td>${day.domesticWasteLoads}</td>
+                            <td>${day.domesticWasteTonnes}</td>
+                            <td>${day.gullyWasteLoads}</td>
+                            <td>${day.gullyWasteTonnes}</td>
+                            <td>${day.publicNormalLoads}</td>
+                            <td>${day.publicNormalTonnes}</td>
+                            <td>${day.privateLoads}</td>
+                            <td>${day.privateTonnes}</td>
+                            <td>${day.dailyTotalLoads}</td>
+                            <td>${day.dailyTotalTonnes}</td>
+                            <td>${day.greaseTrapLoads}</td>
+                            <td>${day.greaseTrapTonnes}</td>
+                        </tr>
+                    `;
+                }).join('')}
+            </tbody>
+            <tfoot>
+                <tr class="total-row">
+                    <td class="transaction-date">Total</td>
+                    <td>${totals.domesticWasteLoads}</td>
+                    <td>${totals.domesticWasteTonnes}</td>
+                    <td>${totals.gullyWasteLoads}</td>
+                    <td>${totals.gullyWasteTonnes}</td>
+                    <td>${totals.publicNormalLoads}</td>
+                    <td>${totals.publicNormalTonnes}</td>
+                    <td>${totals.privateLoads}</td>
+                    <td>${totals.privateTonnes}</td>
+                    <td>${totals.dailyTotalLoads}</td>
+                    <td>${totals.dailyTotalTonnes}</td>
+                    <td class="grease-trap-border">${totals.greaseTrapLoads}</td>
+                    <td>${totals.greaseTrapTonnes}</td>
+                </tr>
+                <tr class="average-row">
+                    <td class="transaction-date">Daily Average</td>
+                    <td>${averages.domesticWasteLoads}</td>
+                    <td>${averages.domesticWasteTonnes}</td>
+                    <td>${averages.gullyWasteLoads}</td>
+                    <td>${averages.gullyWasteTonnes}</td>
+                    <td>${averages.publicNormalLoads}</td>
+                    <td>${averages.publicNormalTonnes}</td>
+                    <td>${averages.privateLoads}</td>
+                    <td>${averages.privateTonnes}</td>
+                    <td>${averages.dailyTotalLoads}</td>
+                    <td>${averages.dailyTotalTonnes}</td>
+                    <td class="grease-trap-border">${averages.greaseTrapLoads}</td>
+                    <td>${averages.greaseTrapTonnes}</td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+</div>
     `;
     
     // Add export button event listeners
-    setupExportButtons();
+    setupExportButtons(month, year);
 }
 
 // Calculate totals for the month
@@ -924,54 +883,101 @@ function calculateAverages(monthData) {
 }
 
 // Function to setup monthly export buttons
-function setupExportButtons() {
+function setupExportButtons(month, year) {
     const exportPdf = document.getElementById('exportPdf');
     const exportExcel = document.getElementById('exportExcel');
     
     if (exportPdf) {
         exportPdf.addEventListener('click', () => {
-            const monthSelect = document.getElementById('monthSelect');
-            const month = monthSelect.value;
             const selectedStationId = localStorage.getItem('stationId') || 'wkts';
             const selectedStation = stations.find(s => s.id.toLowerCase() === selectedStationId.toLowerCase());
             const stationName = selectedStation ? selectedStation.name.split(' - ')[0] : 'Unknown Station';
             
-            // Get current monthly data
-            const currentYear = new Date().getFullYear();
-            let monthData = processMonthData(month, currentYear);
-            if (monthData.length === 0) {
-                monthData = processMonthData(month, currentYear - 1);
-            }
+            // Get current monthly data for the specific year
+            const monthData = processMonthData(month, year);
             
+            // Check if we have data before exporting
             if (monthData.length > 0) {
-                exportMonthlyToPdf(month, stationName, monthData, calculateTotals, calculateAverages);
+                exportMonthlyToPdf(month, stationName, monthData, calculateTotals, calculateAverages, year);
             } else {
-                alert('No data available to export for the selected month.');
+                alert('No data available to export for the selected month and year.');
             }
         });
     }
     
     if (exportExcel) {
         exportExcel.addEventListener('click', () => {
-            const monthSelect = document.getElementById('monthSelect');
-            const month = monthSelect.value;
             const selectedStationId = localStorage.getItem('stationId') || 'wkts';
             const selectedStation = stations.find(s => s.id.toLowerCase() === selectedStationId.toLowerCase());
             const stationName = selectedStation ? selectedStation.name.split(' - ')[0] : 'Unknown Station';
             
-            // Get current monthly data
-            const currentYear = new Date().getFullYear();
-            let monthData = processMonthData(month, currentYear);
-            if (monthData.length === 0) {
-                monthData = processMonthData(month, currentYear - 1);
-            }
+            // Get current monthly data for the specific year
+            const monthData = processMonthData(month, year);
             
+            // Check if we have data before exporting
             if (monthData.length > 0) {
-                exportMonthlyToExcel(month, stationName, monthData, calculateTotals, calculateAverages);
+                exportMonthlyToExcel(month, stationName, monthData, calculateTotals, calculateAverages, year);
             } else {
-                alert('No data available to export for the selected month.');
+                alert('No data available to export for the selected month and year.');
             }
         });
+    }
+}
+
+// Function to load waste intake data
+function loadWasteIntake(month) {
+    console.log('Loading waste intake data for month:', month);
+    
+    const selectedStationId = localStorage.getItem('stationId') || 'wkts';
+    const selectedStation = stations.find(s => s.id.toLowerCase() === selectedStationId.toLowerCase());
+    const stationName = selectedStation ? selectedStation.name.split(' - ')[0] : 'Unknown Station';
+    
+    const statsContent = document.getElementById('monthlyStatsContent');
+    statsContent.innerHTML = `
+        <div class="loading-state">
+            <div class="spinner"></div>
+            <p>Loading Waste Intake data for ${month} at ${stationName}...</p>
+        </div>
+    `;
+    
+    // Use current year only
+    const currentYear = new Date().getFullYear();
+    
+    try {
+        // Call the actual implementation from period-table.js
+        const wasteIntakeData = window.processWasteIntakeData(month, currentYear);
+        
+        // Check if we have data for the requested year
+        const hasData = wasteIntakeData && wasteIntakeData.length > 0;
+        
+        if (!hasData) {
+            statsContent.innerHTML = `
+                <div class="no-data-message">
+                    <h3>No Waste Intake Data Available</h3>
+                    <p>No completed transaction records found for ${month} ${currentYear}.</p>
+                    <p>Please check if:</p>
+                    <ul>
+                        <li>The data file contains records for this month and year</li>
+                        <li>The date formats in the data are correct</li>
+                        <li>There are completed transactions (交收狀態: 完成)</li>
+                    </ul>
+                </div>
+            `;
+            return;
+        }
+        
+        // Show the Waste Intake table with data
+        window.showWasteIntakeTable(month, stationName, wasteIntakeData, currentYear);
+        
+    } catch (error) {
+        console.error('Error loading waste intake data:', error);
+        statsContent.innerHTML = `
+            <div class="error-message">
+                <h3>Error Loading Data</h3>
+                <p>There was an error processing the waste intake data for ${month}.</p>
+                <p>Error: ${error.message}</p>
+            </div>
+        `;
     }
 }
 
@@ -1050,35 +1056,37 @@ export function renderMonthlyStats() {
                     <div class="monthly-header-top">
                         <h1>Monthly Statistics - ${namePart}</h1>
                         <div class="period-selector">
-                            <div class="period-buttons">
-                                <button class="period-btn" data-period="q1">
-                                    <span class="quarter-title">Q1</span>
-                                    <span class="quarter-months">(Jan - Mar)</span>
-                                </button>
-                                <button class="period-btn" data-period="q2">
-                                    <span class="quarter-title">Q2</span>
-                                    <span class="quarter-months">(Apr - Jun)</span>
-                                </button>
-                                <button class="period-btn" data-period="q3">
-                                    <span class="quarter-title">Q3</span>
-                                    <span class="quarter-months">(Jul - Sep)</span>
-                                </button>
-                                <button class="period-btn" data-period="q4">
-                                    <span class="quarter-title">Q4</span>
-                                    <span class="quarter-months">(Oct - Dec)</span>
-                                </button>
-                                <button class="period-btn" data-period="h1">
-                                    <span class="quarter-title">H1</span>
-                                    <span class="quarter-months">(Jan - Jun)</span>
-                                </button>
-                                <button class="period-btn" data-period="h2">
-                                    <span class="quarter-title">H2</span>
-                                    <span class="quarter-months">(Jul - Dec)</span>
-                                </button>
-                                <button class="period-btn" data-period="annual">
-                                    <span class="quarter-title">Annual</span>
-                                    <span class="quarter-months">(Jan - Dec)</span>
-                                </button>
+                            <!-- WASTE INTAKE DROPDOWN -->
+                            <div class="month-dropdown">
+                                <select id="wasteIntakeSelect" class="month-select waste-intake-select">
+                                    <option value="">Waste Intake</option>
+                                    <option value="january">January</option>
+                                    <option value="february">February</option>
+                                    <option value="march">March</option>
+                                    <option value="april">April</option>
+                                    <option value="may">May</option>
+                                    <option value="june">June</option>
+                                    <option value="july">July</option>
+                                    <option value="august">August</option>
+                                    <option value="september">September</option>
+                                    <option value="october">October</option>
+                                    <option value="november">November</option>
+                                    <option value="december">December</option>
+                                </select>
+                            </div>
+
+                            <!-- PERIOD DROPDOWN -->
+                            <div class="period-dropdown">
+                                <select id="periodSelect" class="period-select">
+                                    <option value="">Select Period</option>
+                                    <option value="q1">Q1 (Jan-Mar)</option>
+                                    <option value="q2">Q2 (Apr-Jun)</option>
+                                    <option value="q3">Q3 (Jul-Sep)</option>
+                                    <option value="q4">Q4 (Oct-Dec)</option>
+                                    <option value="h1">H1 (Jan-Jun)</option>
+                                    <option value="h2">H2 (Jul-Dec)</option>
+                                    <option value="annual">Annual (Jan-Dec)</option>
+                                </select>
                             </div>
                             
                             <!-- Hourly WCV Intake Dropdown -->
@@ -1126,7 +1134,7 @@ export function renderMonthlyStats() {
                 <div class="monthly-stats-content" id="monthlyStatsContent">
                     <div class="simple-welcome-message">
                         <h2>Which report are you looking for?</h2>
-                        <p>Please choose a period (e.g., Q1, Annual) or select a month for Hourly WCV Intake or Monthly Stats report.</p>
+                        <p>Please choose Waste Intake, a period (e.g., Q1, Annual) or select a month for Hourly WCV Intake or Monthly Stats report.</p>
                     </div>
                 </div>
             </div>
@@ -1184,6 +1192,94 @@ function setupMonthlyStatsEventListeners() {
         });
     }
     
+    // Waste Intake dropdown
+    const wasteIntakeSelect = document.getElementById('wasteIntakeSelect');
+    if (wasteIntakeSelect) {
+        wasteIntakeSelect.addEventListener('change', function() {
+            if (this.value) {
+                // Clear the other dropdowns
+                const periodSelect = document.getElementById('periodSelect');
+                const hourlyMonthSelect = document.getElementById('hourlyMonthSelect');
+                const monthSelect = document.getElementById('monthSelect');
+                
+                if (periodSelect) periodSelect.value = '';
+                if (hourlyMonthSelect) hourlyMonthSelect.value = '';
+                if (monthSelect) monthSelect.value = '';
+                
+                console.log('Loading waste intake for:', this.value);
+                loadWasteIntake(this.value);
+            } else {
+                showWelcomeMessage();
+            }
+        });
+    }
+    
+    // Period dropdown
+    const periodSelect = document.getElementById('periodSelect');
+    if (periodSelect) {
+        periodSelect.addEventListener('change', function() {
+            if (this.value) {
+                // Clear the other dropdowns
+                const wasteIntakeSelect = document.getElementById('wasteIntakeSelect');
+                const hourlyMonthSelect = document.getElementById('hourlyMonthSelect');
+                const monthSelect = document.getElementById('monthSelect');
+                
+                if (wasteIntakeSelect) wasteIntakeSelect.value = '';
+                if (hourlyMonthSelect) hourlyMonthSelect.value = '';
+                if (monthSelect) monthSelect.value = '';
+                
+                console.log('Loading period stats for:', this.value);
+                loadPeriodStats(this.value);
+            } else {
+                showWelcomeMessage();
+            }
+        });
+    }
+    
+    // Hourly WCV month dropdown
+    const hourlyMonthSelect = document.getElementById('hourlyMonthSelect');
+    if (hourlyMonthSelect) {
+        hourlyMonthSelect.addEventListener('change', function() {
+            if (this.value) {
+                // Clear the other dropdowns
+                const wasteIntakeSelect = document.getElementById('wasteIntakeSelect');
+                const periodSelect = document.getElementById('periodSelect');
+                const monthSelect = document.getElementById('monthSelect');
+                
+                if (wasteIntakeSelect) wasteIntakeSelect.value = '';
+                if (periodSelect) periodSelect.value = '';
+                if (monthSelect) monthSelect.value = '';
+                
+                console.log('Loading hourly stats for:', this.value);
+                loadHourlyStats(this.value);
+            } else {
+                showWelcomeMessage();
+            }
+        });
+    }
+    
+    // Monthly Stats dropdown
+    const monthSelect = document.getElementById('monthSelect');
+    if (monthSelect) {
+        monthSelect.addEventListener('change', function() {
+            if (this.value) {
+                // Clear the other dropdowns
+                const wasteIntakeSelect = document.getElementById('wasteIntakeSelect');
+                const periodSelect = document.getElementById('periodSelect');
+                const hourlyMonthSelect = document.getElementById('hourlyMonthSelect');
+                
+                if (wasteIntakeSelect) wasteIntakeSelect.value = '';
+                if (periodSelect) periodSelect.value = '';
+                if (hourlyMonthSelect) hourlyMonthSelect.value = '';
+                
+                console.log('Loading monthly stats for:', this.value);
+                loadMonthStats(this.value);
+            } else {
+                showWelcomeMessage();
+            }
+        });
+    }
+    
     // Action buttons
     const uploadCsvBtn = document.getElementById('uploadCsv');
     const logoutBtn = document.getElementById('logout');
@@ -1200,62 +1296,6 @@ function setupMonthlyStatsEventListeners() {
     if (monthlyStatsBtn) {
         // Already on monthly stats page, just ensure it's active
         monthlyStatsBtn.classList.add('active');
-    }
-    
-    // Period buttons
-    document.querySelectorAll('.period-btn').forEach(btn => {
-        btn.addEventListener('click', function() {
-            document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
-            this.classList.add('active');
-            
-            // Clear both dropdown selections when period button is clicked
-            const hourlyMonthSelect = document.getElementById('hourlyMonthSelect');
-            const monthSelect = document.getElementById('monthSelect');
-            
-            if (hourlyMonthSelect) hourlyMonthSelect.value = '';
-            if (monthSelect) monthSelect.value = '';
-            
-            const period = this.dataset.period;
-            loadPeriodStats(period);
-        });
-    });
-    
-    // Hourly WCV month dropdown
-    const hourlyMonthSelect = document.getElementById('hourlyMonthSelect');
-    if (hourlyMonthSelect) {
-        hourlyMonthSelect.addEventListener('change', function() {
-            if (this.value) {
-                // Clear the other dropdown and deactivate period buttons
-                const monthSelect = document.getElementById('monthSelect');
-                if (monthSelect) monthSelect.value = '';
-                
-                document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
-                
-                console.log('Loading hourly stats for:', this.value);
-                loadHourlyStats(this.value);
-            } else {
-                showWelcomeMessage();
-            }
-        });
-    }
-    
-    // Monthly Stats dropdown
-    const monthSelect = document.getElementById('monthSelect');
-    if (monthSelect) {
-        monthSelect.addEventListener('change', function() {
-            if (this.value) {
-                // Clear the other dropdown and deactivate period buttons
-                const hourlyMonthSelect = document.getElementById('hourlyMonthSelect');
-                if (hourlyMonthSelect) hourlyMonthSelect.value = '';
-                
-                document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
-                
-                console.log('Loading monthly stats for:', this.value);
-                loadMonthStats(this.value);
-            } else {
-                showWelcomeMessage();
-            }
-        });
     }
     
     console.log('✅ Monthly stats event listeners setup complete');
@@ -1275,20 +1315,24 @@ function handleStationSelect(stationId) {
     updateStationHeader(stationId);
     
     // Reload current view if data is already loaded
-    const monthSelect = document.getElementById('monthSelect');
+    const wasteIntakeSelect = document.getElementById('wasteIntakeSelect');
+    const periodSelect = document.getElementById('periodSelect');
     const hourlyMonthSelect = document.getElementById('hourlyMonthSelect');
-    const activePeriod = document.querySelector('.period-btn.active');
+    const monthSelect = document.getElementById('monthSelect');
     
-    // Priority: Hourly > Monthly > Period
-    if (hourlyMonthSelect && hourlyMonthSelect.value) {
+    // Priority: Waste Intake > Period > Hourly > Monthly
+    if (wasteIntakeSelect && wasteIntakeSelect.value) {
+        console.log('Reloading waste intake data for new station');
+        loadWasteIntake(wasteIntakeSelect.value);
+    } else if (periodSelect && periodSelect.value) {
+        console.log('Reloading period data for new station');
+        loadPeriodStats(periodSelect.value);
+    } else if (hourlyMonthSelect && hourlyMonthSelect.value) {
         console.log('Reloading hourly data for new station');
         loadHourlyStats(hourlyMonthSelect.value);
     } else if (monthSelect && monthSelect.value) {
         console.log('Reloading monthly data for new station');
         loadMonthStats(monthSelect.value);
-    } else if (activePeriod) {
-        console.log('Reloading period data for new station');
-        loadPeriodStats(activePeriod.dataset.period);
     } else {
         console.log('No active view to reload');
         showWelcomeMessage();
@@ -1334,72 +1378,7 @@ function showWelcomeMessage() {
     statsContent.innerHTML = `
         <div class="simple-welcome-message">
             <h2>Which report are you looking for?</h2>
-            <p>Please choose a period (e.g., Q1, Annual) or select a month for Hourly WCV Intake or Monthly Stats report.</p>
-        </div>
-    `;
-}
-
-// Load Period Stats
-function loadPeriodStats(period) {
-    console.log('Loading stats for period:', period);
-    
-    const selectedStationId = localStorage.getItem('stationId') || 'wkts';
-    const selectedStation = stations.find(s => s.id.toLowerCase() === selectedStationId.toLowerCase());
-    const stationName = selectedStation ? selectedStation.name.split(' - ')[0] : 'Unknown Station';
-    
-    const statsContent = document.getElementById('monthlyStatsContent');
-    statsContent.innerHTML = `
-        <div class="loading-state">
-            <div class="spinner"></div>
-            <p>Loading ${period.toUpperCase()} statistics for ${stationName}...</p>
-        </div>
-    `;
-    
-    // Simulate API call delay
-    setTimeout(() => {
-        showPeriodSummary(period, stationName);
-    }, 1500);
-}
-
-// Show Period Summary
-function showPeriodSummary(period, stationName) {
-    const year = new Date().getFullYear();
-    
-    const statsContent = document.getElementById('monthlyStatsContent');
-    statsContent.innerHTML = `
-        <div class="period-summary">
-            <div class="period-header">
-                <h2>${period.toUpperCase()} ${year} Summary - ${stationName}</h2>
-                <div class="period-info">Quarterly/Half-Yearly/Annual Statistics Overview</div>
-            </div>
-            
-            <div class="summary-cards">
-                <div class="summary-card">
-                    <div class="summary-value">1,250</div>
-                    <div class="summary-label">Total Loads</div>
-                    <div class="summary-trend positive">+5.2% vs previous period</div>
-                </div>
-                <div class="summary-card">
-                    <div class="summary-value">2,845.6 t</div>
-                    <div class="summary-label">Total Weight</div>
-                    <div class="summary-trend positive">+3.8% vs previous period</div>
-                </div>
-                <div class="summary-card">
-                    <div class="summary-value">645</div>
-                    <div class="summary-label">Public Collections</div>
-                    <div class="summary-trend positive">+2.1% vs previous period</div>
-                </div>
-                <div class="summary-card">
-                    <div class="summary-value">328</div>
-                    <div class="summary-label">Private Collections</div>
-                    <div class="summary-trend neutral">+0.5% vs previous period</div>
-                </div>
-            </div>
-            
-            <div class="period-note">
-                <p><strong>Note:</strong> Full ${period.toUpperCase()} analytics and detailed breakdowns coming soon.</p>
-                <p>For now, select a specific month for Hourly WCV Intake or Monthly Stats to view detailed transaction data.</p>
-            </div>
+            <p>Please choose Waste Intake, a period (e.g., Q1, Annual) or select a month for Hourly WCV Intake or Monthly Stats report.</p>
         </div>
     `;
 }

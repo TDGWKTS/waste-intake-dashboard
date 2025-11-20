@@ -1,4 +1,4 @@
-﻿/* monthly-stats.css - Updated with Hourly table styles */
+﻿/* monthly-stats.css - Updated with Period Dropdown and Fixed Layout */
 * {
     margin: 0;
     padding: 0;
@@ -60,56 +60,54 @@ html, body {
 .period-selector {
     display: flex;
     align-items: center;
-    gap: 20px;
+    gap: 15px;
     flex-wrap: wrap;
 }
 
-.period-buttons {
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
+/* PERIOD DROPDOWN STYLES */
+.period-dropdown {
+    position: relative;
+    display: inline-block;
 }
 
-.period-btn {
-    padding: 10px 12px;
+.period-select {
+    padding: 8px 35px 8px 12px;
     background: #333;
     border: 1px solid #555;
-    color: #ccc;
+    color: #cccccc;
     border-radius: 6px;
-    cursor: pointer;
-    transition: all 0.2s ease;
+    min-width: 180px;
     font-size: 14px;
-    font-weight: 500;
-    white-space: nowrap;
-    min-width: 70px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    line-height: 1.2;
-    height: auto;
-    min-height: 50px;
+    cursor: pointer;
+    
+    /* Remove all default styling */
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    outline: none;
 }
 
-.period-btn:hover {
-    background: #444;
-    border-color: #666;
-    color: #fff;
+/* Custom dropdown arrow for period selector */
+.period-dropdown::after {
+    content: "▼";
+    font-size: 10px;
+    color: #ccc;
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    pointer-events: none;
 }
 
-.period-btn.active {
-    background: #00ff88;
-    border-color: #00ff88;
-    color: #000;
-    font-weight: 600;
+/* Force dark theme on period dropdown options */
+.period-select option {
+    background: #1a1a1a !important;
+    color: #ccc !important;
+    border: none !important;
+    outline: none !important;
+    padding: 10px !important;
 }
 
-.month-dropdown {
-    display: flex;
-    align-items: center;
-}
-
-/* NUCLEAR OPTION: Completely restyle the dropdown */
 .month-dropdown {
     position: relative;
     display: inline-block;
@@ -119,7 +117,7 @@ html, body {
     padding: 8px 35px 8px 12px;
     background: #333;
     border: 1px solid #555;
-    color: #ccc;
+    color: #cccccc;
     border-radius: 6px;
     min-width: 150px;
     font-size: 14px;
@@ -159,9 +157,9 @@ html, body {
 }
 
 .hourly-table-container {
-    margin-top: 20px;
+    margin-top: 0px;
     overflow-x: auto;
-    padding: 30px;
+    padding: 10px;
 }
 
 .hourly-data-table {
@@ -285,25 +283,85 @@ html, body {
     font-weight: 600;
 }
 
-/* Update hourly table note style */
-.hourly-table-container .table-notes {
-    background: #2a2a2a;
-    padding: 15px;
+/* PERIOD TABLE STYLES */
+.period-table-container {
+    margin: 10px;
     border-radius: 8px;
-    border-left: 4px solid #00ff88;
-    margin-top: 20px;
+    overflow: hidden;
 }
 
-.hourly-table-container .table-notes p {
-    color: #ccc;
-    font-size: 14px;
-    line-height: 1.4;
+.period-table-header {
+    background: #2c3e50;
+    padding: 20px;
+    color: white;
+}
+
+.period-table-title {
+    font-size: 24px;
+    font-weight: bold;
     margin: 0;
 }
 
-.hourly-table-container .table-notes strong {
-    color: #00ff88;
-    font-weight: 600;
+.period-data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+    background: transparent;
+}
+
+.period-data-table th {
+    padding: 10px 12px;
+    text-align: center;
+    color: white;
+    font-weight: bold;
+    border: 1px solid #2c3e50;
+}
+
+.period-month-header {
+    background: #34495e;
+    min-width: 80px;
+}
+
+.period-msw-header {
+    background: #16a085;
+}
+
+.period-gtv-header {
+    background: #8e44ad;
+}
+
+.period-subheader {
+    font-size: 12px;
+}
+
+.period-data-table td {
+    padding: 10px 12px;
+    border: 1px solid #444;
+    text-align: center;
+    font-family: 'Courier New', monospace;
+    color: white;
+}
+
+.period-total-row {
+    border-top: 2px solid #27ae60;
+}
+
+.period-average-row {
+    border-top: 2px solid #ffc107;
+}
+
+.period-footer {
+    padding: 15px 20px;
+    background: #2c3e50;
+    border-top: 1px solid #444;
+    text-align: center;
+}
+
+.period-footer p {
+    margin: 0;
+    color: #ccc;
+    font-size: 12px;
+    font-style: italic;
 }
 
 /* Monthly Stats Content */
@@ -370,96 +428,17 @@ html, body {
     100% { transform: rotate(360deg); }
 }
 
-/* Period Summary */
-.period-summary {
-    padding: 30px;
-}
-
-.period-header {
-    text-align: center;
-    margin-bottom: 40px;
-}
-
-.period-header h2 {
-    color: #00ff88;
-    font-size: 24px;
-    margin-bottom: 10px;
-}
-
-.period-info {
-    color: #666;
-    font-size: 14px;
-}
-
-.summary-cards {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-    gap: 20px;
-    margin-bottom: 40px;
-}
-
-.summary-card {
-    background: #1a1a1a;
-    padding: 25px;
-    border-radius: 8px;
-    border: 1px solid #333;
-    text-align: center;
-}
-
-.summary-value {
-    color: #00ff88;
-    font-size: 32px;
-    font-weight: 700;
-    margin-bottom: 8px;
-}
-
-.summary-label {
-    color: #ccc;
-    font-size: 14px;
-    margin-bottom: 8px;
-}
-
-.summary-trend {
-    font-size: 14px;
-    font-weight: 500;
-}
-
-.summary-trend.positive {
-    color: #00ff88;
-}
-
-.summary-trend.neutral {
-    color: #ffaa00;
-}
-
-.summary-trend.negative {
-    color: #ff4444;
-}
-
-.period-note {
-    background: #2a2a2a;
-    padding: 20px;
-    border-radius: 8px;
-    border-left: 4px solid #00ff88;
-}
-
-.period-note p {
-    color: #ccc;
-    margin-bottom: 10px;
-    font-size: 14px;
-}
-
 /* Monthly Table Container */
 .monthly-table-container {
-    padding: 30px;
+    padding: 10px;
 }
 
 .monthly-table-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 15px;
-    flex-wrap: wrap;
+    margin-bottom: 5px;
+    flex-wrap: nowrap;
     gap: 15px;
 }
 
@@ -467,35 +446,71 @@ html, body {
     color: #00ff88;
     font-size: 20px;
     font-weight: 600;
-    text-align: center;
-    margin-bottom: 15px;
-    width: 100%;
+    text-align: left;
+    margin-bottom: 0;
+    flex: 1;
 }
 
 .table-actions {
     display: flex;
     gap: 10px;
-    margin: 0 auto;
+    flex-shrink: 0;
 }
 
+/* ===== EXPORT BUTTON STYLES ===== */
 .export-btn {
     display: flex;
     align-items: center;
     gap: 8px;
     padding: 8px 16px;
-    background: #333;
     border: 1px solid #555;
     color: #ccc;
     border-radius: 6px;
     cursor: pointer;
     transition: all 0.2s ease;
     font-size: 14px;
+    font-weight: 500;
+    text-decoration: none;
+    background: transparent;
+}
+
+/* PDF Export Buttons - Purple */
+.export-btn[id*="Pdf"], 
+.export-btn[id*="pdf"],
+button[id*="Pdf"],
+button[id*="pdf"] {
+    background: #4744ff !important;
+    color: #fff !important;
+    border: 1px solid #4744ff !important;
+}
+
+/* Excel Export Buttons - Orange */
+.export-btn[id*="Excel"],
+.export-btn[id*="excel"],
+button[id*="Excel"],
+button[id*="excel"] {
+    background: #aa5e00 !important;
+    color: #fff !important;
+    border: 1px solid #aa5e00 !important;
 }
 
 .export-btn:hover {
-    background: #444;
-    border-color: #666;
-    color: #fff;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+    filter: brightness(1.1);
+}
+
+/* Specific hover states */
+.export-btn[id*="Pdf"]:hover,
+.export-btn[id*="pdf"]:hover {
+    background: #5c59ff !important;
+    border-color: #5c59ff !important;
+}
+
+.export-btn[id*="Excel"]:hover,
+.export-btn[id*="excel"]:hover {
+    background: #c47100 !important;
+    border-color: #c47100 !important;
 }
 
 /* Table Wrapper */
@@ -530,41 +545,41 @@ html, body {
 
 /* Column width distribution - Public 3x Private */
 .monthly-data-table th.transaction-date {
-    width: 80px; /* Reduced from 110px */
+    width: 80px;
 }
 
 /* Publicly Collected Waste columns - 3 times wider than Private */
 .monthly-data-table th.header-public:not(.transaction-date) {
-    width: 240px; /* Increased for Public columns */
+    width: 240px;
 }
 
 .monthly-data-table th.header-private {
-    width: 80px; /* Private columns */
+    width: 80px;
 }
 
 .monthly-data-table th.header-total {
-    width: 80px; /* Same as Private */
+    width: 80px;
 }
 
 .monthly-data-table th.header-grease {
-    width: 80px; /* Same as Private */
+    width: 80px;
 }
 
 /* Header color schemes */
 .header-public {
-    background: #2d4a2d !important; /* Dark green */
+    background: #2d4a2d !important;
 }
 
 .header-private {
-    background: #4a2d2d !important; /* Dark red */
+    background: #4a2d2d !important;
 }
 
 .header-total {
-    background: #2d2d4a !important; /* Dark blue */
+    background: #2d2d4a !important;
 }
 
 .header-grease {
-    background: #4a4a2d !important; /* Dark yellow/brown */
+    background: #4a4a2d !important;
 }
 
 /* Column labels row */
@@ -756,22 +771,20 @@ html, body {
         width: 100%;
     }
     
-    .period-buttons {
-        width: 100%;
-        justify-content: flex-start;
-    }
-    
+    .period-dropdown,
     .month-dropdown {
         width: 100%;
     }
     
+    .period-select,
     .month-select {
         width: 100%;
     }
     
     .monthly-table-container,
-    .hourly-table-container {
-        padding: 15px;
+    .hourly-table-container,
+    .period-table-container {
+        padding: 5px;
     }
     
     .monthly-table-header {
@@ -780,24 +793,23 @@ html, body {
     }
     
     .monthly-data-table,
-    .hourly-data-table {
+    .hourly-data-table,
+    .period-data-table {
         font-size: 11px;
     }
     
     .monthly-data-table th,
-    .hourly-data-table th {
+    .hourly-data-table th,
+    .period-data-table th {
         font-size: 10px;
         padding: 6px 3px;
     }
     
     .monthly-data-table td,
-    .hourly-data-table td {
+    .hourly-data-table td,
+    .period-data-table td {
         font-size: 11px;
         padding: 5px 3px;
-    }
-    
-    .summary-cards {
-        grid-template-columns: 1fr;
     }
     
     .simple-welcome-message h2 {
@@ -815,21 +827,16 @@ html, body {
     .hourly-data-table .time-header {
         min-width: 100px;
     }
+    
+    .period-table-title {
+        font-size: 18px;
+    }
 }
 
 @media (max-width: 480px) {
-    .period-buttons {
-        flex-direction: column;
-        width: 100%;
-    }
-    
-    .period-btn {
-        width: 100%;
-        text-align: center;
-    }
-    
     .monthly-data-table,
-    .hourly-data-table {
+    .hourly-data-table,
+    .period-data-table {
         font-size: 10px;
     }
     
@@ -858,6 +865,10 @@ html, body {
     .hourly-data-table .time-header {
         min-width: 80px;
         font-size: 9px;
+    }
+    
+    .period-table-title {
+        font-size: 16px;
     }
 }
 
@@ -898,12 +909,14 @@ body::-webkit-scrollbar {
     }
     
     .monthly-table-container,
-    .hourly-table-container {
+    .hourly-table-container,
+    .period-table-container {
         padding: 0 !important;
     }
     
     .monthly-data-table,
-    .hourly-data-table {
+    .hourly-data-table,
+    .period-data-table {
         font-size: 11px !important;
     }
     
@@ -911,3 +924,4 @@ body::-webkit-scrollbar {
         page-break-inside: avoid;
     }
 }
+
