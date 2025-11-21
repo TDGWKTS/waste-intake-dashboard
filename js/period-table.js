@@ -1,6 +1,4 @@
-﻿// period-table.js - Complete with Waste Intake logic and proper CSS classes
-
-// Import export functions from export.js
+﻿// period-table.js - Updated with yearly file support (2023+)
 import { 
     exportWasteIntakeToPdf, 
     exportWasteIntakeToExcel, 
@@ -15,7 +13,7 @@ function getMonthIndex(month) {
     return months.indexOf(month.toLowerCase());
 }
 
-// Function to process Waste Intake data for a specific month
+// Function to process Waste Intake data for a specific month and year
 export function processWasteIntakeData(month, year) {
     console.log(`Processing Waste Intake for ${month} ${year}`);
     
@@ -296,28 +294,35 @@ export function showWasteIntakeTable(month, stationName, wasteIntakeData, year) 
                     </tr>
                 </thead>
                 <tbody>
-                    ${wasteIntakeData.map(day => {
-                        const weekendStyle = day.weekday === 'Sat' || day.weekday === 'Sun' ? 'color: #ff4444;' : '';
-                        return `
-                            <tr>
-                                <td class="waste-intake-date-cell" style="${weekendStyle}">
-                                    ${day.weekday}<br>${day.date}
-                                </td>
-                                <td class="waste-intake-data-cell">${day.totalWasteIntakeLoads}</td>
-                                <td class="waste-intake-data-cell">${day.totalWasteIntakeTonnage.toFixed(2)}</td>
-                                <td class="waste-intake-data-cell">${day.totalMSWLoads}</td>
-                                <td class="waste-intake-data-cell">${day.totalMSWTonnage.toFixed(2)}</td>
-                                <td class="waste-intake-data-cell">${day.publicAMVehicleLoads}</td>
-                                <td class="waste-intake-data-cell">${day.publicAMVehicleTonnage.toFixed(2)}</td>
-                                <td class="waste-intake-data-cell">${day.publicContractorLoads}</td>
-                                <td class="waste-intake-data-cell">${day.publicContractorTonnage.toFixed(2)}</td>
-                                <td class="waste-intake-data-cell">${day.privateMSWLoads}</td>
-                                <td class="waste-intake-data-cell">${day.privateMSWTonnage.toFixed(2)}</td>
-                                <td class="waste-intake-data-cell">${day.privateGTWLoads}</td>
-                                <td class="waste-intake-data-cell">${day.privateGTWTonnage.toFixed(2)}</td>
-                            </tr>
-                        `;
-                    }).join('')}
+                     ${wasteIntakeData.map(day => {
+                    const weekendClass = day.weekday === 'Sat' || day.weekday === 'Sun' ? 'weekend-date' : '';
+                    const sundayRowClass = day.weekday === 'Sun' ? 'sunday-row' : '';
+                    
+                    // Debug logging
+                    if (day.weekday === 'Sun') {
+                        console.log('Sunday detected:', day.date, day.weekday);
+                    }
+                    
+                    return `
+                        <tr class="${sundayRowClass}">
+                            <td class="waste-intake-date-cell ${weekendClass}">
+                                ${day.weekday}<br>${day.date}
+                            </td>
+                            <td class="waste-intake-data-cell">${day.totalWasteIntakeLoads}</td>
+                            <td class="waste-intake-data-cell">${day.totalWasteIntakeTonnage.toFixed(2)}</td>
+                            <td class="waste-intake-data-cell">${day.totalMSWLoads}</td>
+                            <td class="waste-intake-data-cell">${day.totalMSWTonnage.toFixed(2)}</td>
+                            <td class="waste-intake-data-cell">${day.publicAMVehicleLoads}</td>
+                            <td class="waste-intake-data-cell">${day.publicAMVehicleTonnage.toFixed(2)}</td>
+                            <td class="waste-intake-data-cell">${day.publicContractorLoads}</td>
+                            <td class="waste-intake-data-cell">${day.publicContractorTonnage.toFixed(2)}</td>
+                            <td class="waste-intake-data-cell">${day.privateMSWLoads}</td>
+                            <td class="waste-intake-data-cell">${day.privateMSWTonnage.toFixed(2)}</td>
+                            <td class="waste-intake-data-cell">${day.privateGTWLoads}</td>
+                            <td class="waste-intake-data-cell">${day.privateGTWTonnage.toFixed(2)}</td>
+                        </tr>
+                    `;
+                }).join('')}
                 </tbody>
                 <tfoot>
                     <tr class="waste-intake-total-row">
@@ -382,59 +387,16 @@ function setupWasteIntakeExportButtons(month, year, stationName, wasteIntakeData
     }
 }
 
-// Update the loadWasteIntake function to use the new logic
-export function loadWasteIntake(month) {
-    console.log('Loading Waste Intake for month:', month);
-    
-    const selectedStationId = localStorage.getItem('stationId') || 'wkts';
-    const selectedStation = window.stations.find(s => s.id.toLowerCase() === selectedStationId.toLowerCase());
-    const stationName = selectedStation ? selectedStation.name.split(' - ')[0] : 'Unknown Station';
-    
-    const statsContent = document.getElementById('monthlyStatsContent');
-    statsContent.innerHTML = `
-        <div class="loading-state">
-            <div class="spinner"></div>
-            <p>Loading Waste Intake data for ${month} at ${stationName}...</p>
-        </div>
-    `;
-    
-    // Use current year only
-    const currentYear = new Date().getFullYear();
-    const wasteIntakeData = processWasteIntakeData(month, currentYear);
-    
-    // Check if we have data for the requested year
-    const hasData = wasteIntakeData.length > 0;
-    
-    if (!hasData) {
-        statsContent.innerHTML = `
-            <div class="no-data-message">
-                <h3>No Waste Intake Data Available</h3>
-                <p>No completed transaction records found for ${month} ${currentYear}.</p>
-                <p>Please check if:</p>
-                <ul>
-                    <li>The data file contains records for this month and year</li>
-                    <li>The date formats in the data are correct</li>
-                    <li>There are completed transactions (交收狀態: 完成)</li>
-                </ul>
-            </div>
-        `;
-        return;
-    }
-    
-    // Show the Waste Intake table with data
-    showWasteIntakeTable(month, stationName, wasteIntakeData, currentYear);
-}
-
-// Function to process period data - SEPARATE TABLES FOR EACH YEAR
+// Function to process period data - SEPARATE TABLES FOR EACH YEAR (2023+)
 export function processPeriodData(period) {
-    console.log(`Processing ${period} for available years`);
+    console.log(`Processing ${period} for available years (2023+)`);
     
     const currentYear = new Date().getFullYear();
     const availableYears = [];
     const yearDataMap = new Map();
     
-    // Find available years with data
-    for (let year = currentYear; year >= currentYear - 2; year--) {
+    // Find available years with data (2023 to current year)
+    for (let year = currentYear; year >= 2023; year--) {
         console.log(`Checking ${period} ${year}...`);
         const yearData = processSingleYearPeriodData(period, year);
         
@@ -442,8 +404,13 @@ export function processPeriodData(period) {
         if (yearData && yearData.months.length > 0 && yearData.totalDays > 0) {
             availableYears.push(year);
             yearDataMap.set(year, yearData);
+            console.log(`✅ Found data for ${period} ${year}`);
+        } else {
+            console.log(`❌ No data for ${period} ${year}`);
         }
     }
+    
+    console.log(`Available years for ${period}:`, availableYears);
     
     return {
         period: period,
@@ -733,7 +700,7 @@ export function showPeriodTable(period, stationName, periodData) {
         statsContent.innerHTML = `
             <div class="no-data-message">
                 <h3>No Data Available</h3>
-                <p>No transaction records found for ${getPeriodDisplayName(period)} in available years.</p>
+                <p>No transaction records found for ${getPeriodDisplayName(period)} in available years (2023-${new Date().getFullYear()}).</p>
                 <p>Only showing tables for years with actual data.</p>
             </div>
         `;
@@ -762,7 +729,7 @@ export function showPeriodTable(period, stationName, periodData) {
         statsContent.innerHTML = `
             <div class="no-data-message">
                 <h3>No Data Available</h3>
-                <p>No transaction records found for ${getPeriodDisplayName(period)}.</p>
+                <p>No transaction records found for ${getPeriodDisplayName(period)} (2023-${new Date().getFullYear()}).</p>
                 <p>Please check if the data file contains records for the selected period.</p>
             </div>
         `;
@@ -921,11 +888,11 @@ export function loadPeriodStats(period) {
         <div class="loading-state">
             <div class="spinner"></div>
             <p>Loading ${period.toUpperCase()} statistics for ${stationName}...</p>
-            <p>Checking available data for ${new Date().getFullYear()}, ${new Date().getFullYear()-1}, ${new Date().getFullYear()-2}</p>
+            <p>Checking available data for years 2023-${new Date().getFullYear()}</p>
         </div>
     `;
     
-    // Process data for available years
+    // Process data for available years (2023+)
     const periodData = processPeriodData(period);
          
     // Show the period tables - will only show tables for years with data
@@ -941,7 +908,30 @@ export function setStations(data) {
     window.stations = data;
 }
 
+// ADD THE MISSING FUNCTION
+export function loadWasteIntake(month, year) {
+    console.log('Loading Waste Intake for:', month, year);
+    
+    const selectedStationId = localStorage.getItem('stationId') || 'wkts';
+    const selectedStation = window.stations.find(s => s.id.toLowerCase() === selectedStationId.toLowerCase());
+    const stationName = selectedStation ? selectedStation.name.split(' - ')[0] : 'Unknown Station';
+    
+    const statsContent = document.getElementById('monthlyStatsContent');
+    statsContent.innerHTML = `
+        <div class="loading-state">
+            <div class="spinner"></div>
+            <p>Loading Waste Intake for ${month} ${year} - ${stationName}...</p>
+        </div>
+    `;
+    
+    // Process the waste intake data
+    const wasteIntakeData = processWasteIntakeData(month, year);
+    
+    // Show the waste intake table
+    showWasteIntakeTable(month, stationName, wasteIntakeData, year);
+}
+
 // Make functions available globally for monthly-stats.js
 window.processWasteIntakeData = processWasteIntakeData;
 window.showWasteIntakeTable = showWasteIntakeTable;
-window.loadWasteIntake = loadWasteIntake;
+window.loadWasteIntake = loadWasteIntake; // Now this will work

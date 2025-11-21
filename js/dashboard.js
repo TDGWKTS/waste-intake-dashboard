@@ -1,5 +1,6 @@
 ﻿// dashboard.js - Main dashboard coordinator
 import { stations } from './utils.js';
+import { DataManager } from './DataManager.js';
 
 // === DASHBOARD STATE (Shared across modules) ===
 export let currentData = [];
@@ -22,6 +23,57 @@ export function getKey(station) {
     return DATA_KEY + station.toLowerCase(); 
 }
 
+// === TIME VALIDATION FUNCTIONS ===
+export function isValidTime(timeStr) {
+    if (!timeStr || typeof timeStr !== 'string') return false;
+    
+    const timeRegex = /^([01]?[0-9]|2[0-3]):([0-5][0-9])$/;
+    return timeRegex.test(timeStr);
+}
+
+export function validateTimeInput(timeStr, fieldName = 'Time') {
+    if (!timeStr) {
+        return { isValid: false, message: `${fieldName} is required` };
+    }
+    
+    if (typeof timeStr !== 'string') {
+        return { isValid: false, message: `${fieldName} must be a string` };
+    }
+    
+    // Check format HH:MM
+    const timeRegex = /^([01]?[0-9]|2[0-3]):([0-5][0-9])$/;
+    if (!timeRegex.test(timeStr)) {
+        return { 
+            isValid: false, 
+            message: `${fieldName} must be in HH:MM format (00:00 - 23:59)` 
+        };
+    }
+    
+    return { isValid: true };
+}
+
+export function validateTimeRange(startTime, endTime) {
+    const start = parseInt(startTime.replace(':', ''));
+    const end = parseInt(endTime.replace(':', ''));
+    
+    if (end <= start) {
+        return { 
+            isValid: false, 
+            message: 'End time must be after start time' 
+        };
+    }
+    
+    return { isValid: true };
+}
+
+export function showTimeError(message) {
+    // Use a toast notification or alert
+    alert(`Invalid Time: ${message}`);
+    
+    // Alternative: Custom toast notification
+    // showToast(`Invalid Time: ${message}`, 'error');
+}
+
 // === UTILITY FUNCTIONS ===
 export function getPastDate(days) {
     const date = new Date();
@@ -39,8 +91,13 @@ export function formatTimeInput(input) {
         const hoursNum = parseInt(hours);
         const minutesNum = parseInt(minutes);
         
+        // Add validation
         if (hoursNum >= 0 && hoursNum <= 23 && minutesNum >= 0 && minutesNum <= 59) {
             return `${hours.padStart(2, '0')}:${minutes.padStart(2, '0')}`;
+        } else {
+            // Invalid time - show error
+            showTimeError(`Invalid time: ${hours}:${minutes}. Hours must be 00-23, minutes 00-59`);
+            return '00:00'; // Return default value
         }
     }
     
@@ -71,13 +128,9 @@ export async function loadSlicerOptions(stationId) {
         const stationFile = stationId.toLowerCase();
         console.log(`📂 Loading data for station: ${stationFile}`);
         
-        const response = await fetch(`./data/${stationFile}.json`);
+        // FIX: Use DataManager instead of direct fetch
+        const stationData = await DataManager.loadStationData(stationFile);
         
-        if (!response.ok) {
-            throw new Error(`Failed to load ${stationFile}.json: ${response.status}`);
-        }
-        
-        const stationData = await response.json();
         console.log(`✅ Loaded ${stationData.length} records for ${stationFile}`);
         
         const slicerOptions = extractSlicerOptionsFromData(stationData);
@@ -191,13 +244,13 @@ export function renderDashboard() {
                         <!-- Start Time -->
                         <div class="slicer-group">
                             <label class="slicer-label">Start Time</label>
-                            <input type="text" class="slicer-input time-input" id="startTime" value="00:00" maxlength="5" placeholder="0000">
+                            <input type="text" class="slicer-input time-input" id="startTime" value="00:00" maxlength="5" placeholder="00:00">
                         </div>
                         
                         <!-- End Time -->
                         <div class="slicer-group">
                             <label class="slicer-label">End Time</label>
-                            <input type="text" class="slicer-input time-input" id="endTime" value="23:59" maxlength="5" placeholder="2359">
+                            <input type="text" class="slicer-input time-input" id="endTime" value="23:59" maxlength="5" placeholder="23:59">
                         </div>
                         
                         <!-- Delivery Status -->
@@ -464,7 +517,81 @@ function showDashboardComponents() {
     console.log('✅ Dashboard components shown, welcome section hidden');
 }
 
-// === INITIALIZE DASHBOARD ===
+// === TIME INPUT VALIDATION FUNCTIONS ===
+function setupTimeInputValidation() {
+    const startTimeInput = document.getElementById('startTime');
+    const endTimeInput = document.getElementById('endTime');
+    
+    if (startTimeInput) {
+        startTimeInput.addEventListener('blur', validateTimeInputRealTime);
+        startTimeInput.addEventListener('input', formatTimeInputRealTime);
+    }
+    if (endTimeInput) {
+        endTimeInput.addEventListener('blur', validateTimeInputRealTime);
+        endTimeInput.addEventListener('input', formatTimeInputRealTime);
+    }
+}
+
+function validateTimeInputRealTime(event) {
+    const input = event.target;
+    const timeValue = input.value;
+    
+    if (!timeValue) return;
+    
+    const validation = validateTimeInput(timeValue, input.id === 'startTime' ? 'Start time' : 'End time');
+    
+    if (!validation.isValid) {
+        input.style.borderColor = 'red';
+        input.style.backgroundColor = '#ffebee';
+        showInlineError(input, validation.message);
+    } else {
+        input.style.borderColor = '';
+        input.style.backgroundColor = '';
+        clearInlineError(input);
+    }
+}
+
+function formatTimeInputRealTime(event) {
+    const input = event.target;
+    const cursorPosition = input.selectionStart;
+    const originalValue = input.value;
+    
+    // Auto-format as user types (1234 -> 12:34)
+    if (input.value.length === 4 && /^\d{4}$/.test(input.value)) {
+        const formatted = formatTimeInput(input.value);
+        if (formatted !== originalValue) {
+            input.value = formatted;
+            // Restore cursor position after formatting
+            setTimeout(() => {
+                input.setSelectionRange(cursorPosition + 1, cursorPosition + 1);
+            }, 0);
+        }
+    }
+}
+
+function showInlineError(input, message) {
+    // Remove existing error
+    clearInlineError(input);
+    
+    // Add error message
+    const errorElement = document.createElement('div');
+    errorElement.className = 'time-input-error';
+    errorElement.style.color = 'red';
+    errorElement.style.fontSize = '12px';
+    errorElement.style.marginTop = '4px';
+    errorElement.textContent = message;
+    
+    input.parentNode.appendChild(errorElement);
+}
+
+function clearInlineError(input) {
+    const existingError = input.parentNode.querySelector('.time-input-error');
+    if (existingError) {
+        existingError.remove();
+    }
+}
+
+// === UPDATE INITIALIZE DASHBOARD ===
 export async function initializeDashboard() {
     console.log('Dashboard initializing...');
     
@@ -478,7 +605,7 @@ export async function initializeDashboard() {
     
     document.getElementById('app').innerHTML = renderDashboard();
     
-    // ✅ ADD THIS: Load data FIRST before setting up listeners
+    // ✅ Load data FIRST before setting up listeners
     await loadDashboardData();
     
     // Setup all event listeners
@@ -493,6 +620,10 @@ export async function initializeDashboard() {
 // === SETUP ALL EVENT LISTENERS ===
 async function setupAllEventListeners() {
     console.log('🔧 Setting up all event listeners...');
+    
+    // Add time input validation
+    setupTimeInputValidation();
+    console.log('✅ Time input validation setup');
     
     // Setup sidebar event listeners
     try {
@@ -639,29 +770,44 @@ export async function loadDashboardData() {
         const selectedStationId = localStorage.getItem('stationId') || 'wkts';
         console.log(`🔄 Loading dashboard data for station: ${selectedStationId}`);
         
-        const localStorageData = localStorage.getItem(getKey(selectedStationId));
+        // Get date range from UI slicers
+        const startDateInput = document.getElementById('startDate');
+        const endDateInput = document.getElementById('endDate');
         
-        if (localStorageData) {
-            currentData = JSON.parse(localStorageData);
-            console.log(`✅ Loaded ${currentData.length} records from localStorage for station ${selectedStationId}`);
+        let startDate = null;
+        let endDate = null;
+        
+        if (startDateInput && endDateInput && startDateInput.value && endDateInput.value) {
+            startDate = startDateInput.value;
+            endDate = endDateInput.value;
         } else {
-            const stationFile = selectedStationId.toLowerCase();
-            console.log(`📂 Attempting to fetch from: ./data/${stationFile}.json`);
+            // Default to last 7 days if no date range selected
+            const defaultStartDate = new Date();
+            defaultStartDate.setDate(defaultStartDate.getDate() - 7);
+            startDate = defaultStartDate.toISOString().split('T')[0];
+            endDate = new Date().toISOString().split('T')[0];
             
-            const response = await fetch(`./data/${stationFile}.json`);
-            
-            if (response.ok) {
-                currentData = await response.json();
-                console.log(`✅ Loaded ${currentData.length} records from JSON file for station ${selectedStationId}`);
-            } else {
-                currentData = [];
-                console.log(`❌ No data found for station ${selectedStationId} - response status: ${response.status}`);
-            }
+            // Update UI to show the default range
+            if (startDateInput) startDateInput.value = startDate;
+            if (endDateInput) endDateInput.value = endDate;
         }
         
-        // Initialize filteredData as empty - only populate after applying filters
+        console.log(`📅 Loading data for date range: ${startDate} to ${endDate}`);
+        
+        // Load data for the specified date range
+        currentData = await DataManager.loadStationDataForDateRange(selectedStationId, startDate, endDate);
+        
+        if (currentData.length === 0) {
+            console.log(`⚠️ No data found for ${selectedStationId} in the selected date range`);
+            // Try to load any available data for this station
+            console.log(`🔄 Trying to load any available data for ${selectedStationId}`);
+            currentData = await DataManager.loadStationData(selectedStationId);
+        }
+        
+        console.log(`✅ Loaded ${currentData.length} records for station ${selectedStationId}`);
+        
+        // Initialize filteredData as empty
         filteredData = [];
-        console.log(`📊 Initialized filteredData as empty - waiting for filters to be applied`);
         
     } catch (error) {
         console.error('❌ Error loading dashboard data:', error);
@@ -670,17 +816,58 @@ export async function loadDashboardData() {
     }
 }
 
-// === FILTER APPLICATION ===
+// === UPDATE FILTER APPLICATION ===
 export async function handleApplyFilters() {
     console.log('🔄 Applying filters...');
     
+    // Validate time inputs before proceeding
+    const startTimeInput = document.getElementById('startTime');
+    const endTimeInput = document.getElementById('endTime');
+    
+    if (startTimeInput && endTimeInput) {
+        const startTime = startTimeInput.value;
+        const endTime = endTimeInput.value;
+        
+        // Validate individual times
+        const startValidation = validateTimeInput(startTime, 'Start time');
+        const endValidation = validateTimeInput(endTime, 'End time');
+        
+        if (!startValidation.isValid) {
+            showTimeError(startValidation.message);
+            validateTimeInputRealTime({ target: startTimeInput });
+            return;
+        }
+        
+        if (!endValidation.isValid) {
+            showTimeError(endValidation.message);
+            validateTimeInputRealTime({ target: endTimeInput });
+            return;
+        }
+        
+        // Validate time range
+        const rangeValidation = validateTimeRange(startTime, endTime);
+        if (!rangeValidation.isValid) {
+            showTimeError(rangeValidation.message);
+            return;
+        }
+    }
+    
+    // Show loading state
+    const welcomeSection = document.getElementById('welcomeSection');
+    if (welcomeSection) {
+        welcomeSection.innerHTML = `<div style="color: #00ff88; font-size: 16px; font-weight: 600;">Loading data...</div>`;
+    }
+    
+    // Reload data based on current date range
+    await loadDashboardData();
+    
     if (currentData.length === 0) {
-        console.log('❌ No data available');
+        console.log('❌ No data available for selected date range');
         const welcomeSection = document.getElementById('welcomeSection');
         if (welcomeSection) {
             welcomeSection.innerHTML = `
                 <div class="welcome-title">No Data Available</div>
-                <div class="welcome-subtitle">Please upload CSV data first using the "Upload Data" button.</div>
+                <div class="welcome-subtitle">No records found for the selected date range and station.</div>
             `;
             welcomeSection.classList.remove('hidden');
             welcomeSection.classList.add('visible');
@@ -688,12 +875,7 @@ export async function handleApplyFilters() {
         return;
     }
     
-    // Show loading state
-    const welcomeSection = document.getElementById('welcomeSection');
-    if (welcomeSection) {
-        welcomeSection.innerHTML = `<div style="color: #00ff88; font-size: 16px; font-weight: 600;">Applying filters...</div>`;
-    }
-    
+    // Continue with filter application
     await updateCurrentFiltersFromUI();
     applyFilters();
     
@@ -752,7 +934,7 @@ function applyFilters() {
             }
         }
         
-        // Time filter
+        // Time filter (VALIDATION ALREADY DONE IN handleApplyFilters)
         if (passesFilter && currentFilters.timeRange.start && currentFilters.timeRange.end && record.入磅時間) {
             const recordTime = extractTimeForComparison(record.入磅時間);
             if (recordTime) {
@@ -920,52 +1102,6 @@ function resetFilters() {
     if (endTime) endTime.value = '23:59';
     
     console.log('🔄 Filters reset for new station');
-}
-
-// Add this function to dashboard.js to handle compressed data
-function decompressRecords(compressedRecords) {
-    if (!compressedRecords || compressedRecords.length === 0) return [];
-    
-    // Check if already decompressed (has full column names)
-    if (compressedRecords[0].日期) {
-        return compressedRecords;
-    }
-    
-    // Reverse the column mapping
-    const reverseMap = {
-        'd': '日期',     // date
-        's': '交收狀態', // status  
-        'p': '車牌',     // plate
-        't': '車輛任務', // task
-        'tm': '入磅時間', // time
-        'w': '物料重量',  // weight
-        'wt': '廢物類別', // waste type
-        'src': '來源'    // source
-    };
-    
-    return compressedRecords.map(compressed => {
-        const record = { StationId: compressed.st };
-        Object.keys(compressed).forEach(shortKey => {
-            if (shortKey !== 'st' && reverseMap[shortKey]) {
-                record[reverseMap[shortKey]] = compressed[shortKey];
-            }
-        });
-        return record;
-    });
-}
-
-// Update your load function in dashboard.js:
-export function load(station) { 
-    const data = localStorage.getItem(getKey(station));
-    if (!data) return [];
-    
-    try {
-        const parsed = JSON.parse(data);
-        return decompressRecords(parsed);
-    } catch (error) {
-        console.error('Error loading data:', error);
-        return [];
-    }
 }
 
 // Initialize dashboard when DOM is loaded

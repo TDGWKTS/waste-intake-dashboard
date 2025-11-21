@@ -7,31 +7,23 @@
   <link rel="stylesheet" href="css/components.css" />
   <link rel="stylesheet" href="css/login.css" />
   <style>
-    /* Ensure full screen and absolute dark */
     html, body {
-        margin: 0;
-        padding: 0;
-        width: 100%;
-        height: 100%;
-        overflow: hidden;
+        margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden;
         background: #000000;
     }
     #app {
-        width: 100%;
-        height: 100%;
-        display: flex;
-        justify-content: center;
-        align-items: center;
+        width: 100%; height: 100%; display: flex; justify-content: center; align-items: center;
         background: #000000;
     }
-    /* Remove any potential background from other elements */
-    .login-container {
-        background: transparent !important;
-    }
+    .login-container { background: transparent !important; }
   </style>
 </head>
 <body>
-  <div id="app"></div>
+  <div id="app">
+    <!-- Login form will be injected here by login.js -->
+  </div>
+
+  <!-- Your secure login script -->
   <script type="module" src="js/login.js"></script>
 </body>
 </html>

@@ -1,402 +1,324 @@
-﻿// monthly-stats.js - Updated with Waste Intake button
+﻿// monthly-stats.js - Fully Revised & Optimized (November 2025)
+// Supports yearly data (wkts2023.json → wkts2025.json+), caching, multi-station, exports, tooltips
+
 import { stations } from './utils.js';
-import { 
-    exportHourlyToPdf, 
-    exportHourlyToExcel, 
-    exportMonthlyToPdf, 
-    exportMonthlyToExcel 
+import {
+    exportHourlyToPdf,
+    exportHourlyToExcel,
+    exportMonthlyToPdf,
+    exportMonthlyToExcel
 } from './export.js';
 
-import { 
-    loadPeriodStats, 
-    setWktsData, 
-    setStations 
+import {
+    loadPeriodStats,
+    setWktsData,
+    setStations
 } from './period-table.js';
 
-// Monthly Stats Data Structure
-const monthlyData = {};
-
-// Load and process WKTS data
+// Global raw & processed data
 let wktsData = [];
+const cache = {
+    monthly: {},  // key: "january-2025" → processed day array
+    hourly: {}    // key: "january-2025" → {timeSlots, dailyLoads, dailyWeights, dates}
+};
 
-// Function to load and process WKTS data
+// Load raw WKTS data (supports yearly files + legacy fallback)
 async function loadWktsData() {
     try {
-        const response = await fetch('data/wkts.json');
-        wktsData = await response.json();
-        console.log('✅ WKTS data loaded successfully:', wktsData.length, 'records');
-        
-        // Set the data for period-table.js AFTER it's loaded
+        const currentYear = new Date().getFullYear();
+        let data = [];
+
+        for (let year = currentYear; year >= 2023; year--) {
+            const yearly = await loadYearlyData('wkts', year);
+            if (yearly.length > 0) {
+                data = yearly;
+                console.log(`Loaded wkts${year}.json (${data.length} records)`);
+                break;
+            }
+        }
+
+        if (data.length === 0) {
+            const legacy = await fetch('data/wkts.json').then(r => r.ok ? r.json() : []);
+            if (legacy.length > 0) {
+                data = legacy;
+                console.log('Loaded legacy wkts.json');
+            }
+        }
+
+        wktsData = data;
         setWktsData(wktsData);
         setStations(stations);
-        
-        return wktsData;
-    } catch (error) {
-        console.error('❌ Error loading WKTS data:', error);
-        return [];
+        console.log('WKTS data ready:', wktsData.length, 'records');
+    } catch (err) {
+        console.error('Failed to load WKTS data:', err);
     }
 }
 
-// Function to process data for a specific month
+async function loadYearlyData(stationId, year) {
+    try {
+        const res = await fetch(`data/${stationId.toLowerCase()}${year}.json`);
+        if (res.ok) return await res.json();
+    } catch (_) { /* silent */ }
+    return [];
+}
+
+// Helper: find latest year that has data for a processor
+async function findLatestYear(processor, month = null) {
+    const currentYear = new Date().getFullYear();
+    for (let y = currentYear; y >= 2023; y--) {
+        const data = month ? processor(month, y) : processor(y);
+        const has = Array.isArray(data) ? data.length > 0 : Object.keys(data || {}).length > 0;
+        if (has) return { year: y, data };
+    }
+    return { year: null, data: null };
+}
+
+// Cached processors
+function getMonthlyData(month, year) {
+    const key = `${month}-${year}`;
+    if (!cache.monthly[key]) cache.monthly[key] = processMonthData(month, year);
+    return cache.monthly[key];
+}
+
+function getHourlyData(month, year) {
+    const key = `${month}-${year}`;
+    if (!cache.hourly[key]) cache.hourly[key] = processHourlyData(month, year);
+    return cache.hourly[key];
+}
+
+// ======================== MONTHLY PROCESSING ========================
 function processMonthData(month, year) {
-    const monthIndex = getMonthIndex(month);
-    const monthData = [];
-    
-    console.log(`Processing ${month} ${year}, looking for month index: ${monthIndex}`);
-    
-    // Filter data for the specific month and year
-    const monthRecords = wktsData.filter(record => {
-        if (!record.日期 || !record.入磅時間) {
-            return false;
-        }
-        
-        try {
-            // Parse date from "日期" field (DD/MM/YYYY)
-            const dateParts = record.日期.split('/');
-            if (dateParts.length !== 3) {
-                return false;
-            }
-            
-            const day = parseInt(dateParts[0]);
-            const recordMonth = parseInt(dateParts[1]);
-            const recordYear = parseInt(dateParts[2]);
-            
-            const recordDate = new Date(recordYear, recordMonth - 1, day);
-            
-            return recordDate.getMonth() === monthIndex && recordDate.getFullYear() === year;
-            
-        } catch (error) {
-            console.log('Error parsing date/time:', record.日期, record.入磅時間, error);
-            return false;
-        }
+    const monthIdx = getMonthIndex(month);
+    const records = wktsData.filter(r => {
+        if (!r.日期 || !r.入磅時間 || r.交收狀態 !== '完成') return false;
+        const [d, m, y] = r.日期.split('/').map(Number);
+        return y === year && (m - 1) === monthIdx;
     });
-    
-    console.log(`Processing ${month} ${year}: ${monthRecords.length} records found`);
-    
-    if (monthRecords.length === 0) {
-        console.log(`No records found for ${month} ${year}`);
-        return [];
-    }
-    
-    // Group records by date
-    const recordsByDate = {};
-    monthRecords.forEach(record => {
-        try {
-            const dateParts = record.日期.split('/');
-            const day = parseInt(dateParts[0]);
-            const month = parseInt(dateParts[1]);
-            const year = parseInt(dateParts[2]);
-            
-            const dateKey = `${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
-            
-            if (!recordsByDate[dateKey]) {
-                recordsByDate[dateKey] = [];
-            }
-            recordsByDate[dateKey].push(record);
-        } catch (error) {
-            console.log('Error processing record date:', record.日期, error);
-        }
+
+    const byDate = {};
+    records.forEach(r => {
+        const key = r.日期.split('/').reverse().join('-');
+        (byDate[key] ??= []).push(r);
     });
-    
-    console.log(`Grouped into ${Object.keys(recordsByDate).length} dates`);
-    
-    // Process each day
-    Object.keys(recordsByDate).forEach(dateKey => {
-        const records = recordsByDate[dateKey];
-        const [year, month, day] = dateKey.split('-').map(Number);
-        const date = new Date(year, month - 1, day);
-        const isWeekend = date.getDay() === 0 || date.getDay() === 6; // 0 = Sunday, 6 = Saturday
-        
-        const dayData = {
-            date: `${day.toString().padStart(2, '0')}/${month}/${year}`,
-            isWeekend: isWeekend,
-            domesticWasteLoads: 0,
-            domesticWasteTonnes: 0,
-            gullyWasteLoads: 0,
-            gullyWasteTonnes: 0,
-            publicNormalLoads: 0,
-            publicNormalTonnes: 0,
-            privateLoads: 0,
-            privateTonnes: 0,
-            greaseTrapLoads: 0,
-            greaseTrapTonnes: 0
+
+    const days = Object.keys(byDate).map(dateKey => {
+        const [y, m, d] = dateKey.split('-').map(Number);
+        const dateObj = new Date(y, m - 1, d);
+        const day = {
+            date: `${d.toString().padStart(2, '0')}/${m}/${y}`,
+            isWeekend: [0, 6].includes(dateObj.getDay()),
+            domesticWasteLoads: 0, domesticWasteTonnes: 0,
+            gullyWasteLoads: 0, gullyWasteTonnes: 0,
+            publicNormalLoads: 0, publicNormalTonnes: 0,
+            privateLoads: 0, privateTonnes: 0,
+            greaseTrapLoads: 0, greaseTrapTonnes: 0
         };
-        
-        // Process each record for the day
-        records.forEach(record => {
-            if (record.交收狀態 !== '完成') {
-                return;
+
+        byDate[dateKey].forEach(r => {
+            const [h, min] = r.入磅時間.split(':').map(Number);
+            const mins = h * 60 + min;
+            const weight = parseFloat(r.物料重量) || 0;
+            const task = r.車輛任務 || '';
+            const type = r.廢物類別 || '';
+
+            if (task === 'C31 食環署外判車傾倒' && mins >= 265 && mins <= 445 && type !== '家居垃圾 - 坑渠垃圾、砂礫、沙泥和碎石') {
+                day.domesticWasteLoads++; day.domesticWasteTonnes += weight;
             }
-            
-            try {
-                // Parse time from "入磅時間" field (HH:mm:ss)
-                const timeParts = record.入磅時間.split(':');
-                const hours = parseInt(timeParts[0]);
-                const minutes = parseInt(timeParts[1]);
-                const timeInMinutes = hours * 60 + minutes;
-                
-                const vehicleTask = record.車輛任務 || '';
-                const wasteType = record.廢物類別 || '';
-                const weight = parseFloat(record.物料重量) || 0;
-                
-                // 1. Domestic Waste Logic (04:25 - 07:25)
-                 if (vehicleTask === 'C31 食環署外判車傾倒' && 
-                    timeInMinutes >= (4 * 60 + 25) && timeInMinutes <= (7 * 60 + 25) &&
-                    wasteType !== '家居垃圾 - 坑渠垃圾、砂礫、沙泥和碎石') {
-                    dayData.domesticWasteLoads++;
-                    dayData.domesticWasteTonnes += weight;
-                }
-                
-                // 2. Gully Waste Logic (04:25 - 07:25 + 家居垃圾 - 坑渠垃圾、砂礫、沙泥和碎石)
-                if (vehicleTask === 'C31 食環署外判車傾倒' && 
-                    wasteType === '家居垃圾 - 坑渠垃圾、砂礫、沙泥和碎石' &&
-                    timeInMinutes >= (4 * 60 + 25) && timeInMinutes <= (7 * 60 + 25)) {
-                    dayData.gullyWasteLoads++;
-                    dayData.gullyWasteTonnes += weight;
-                }
-                
-                // 3. Publicly Collected Waste Normal (07:26 - 23:59)
-                if ((vehicleTask === 'C31 食環署外判車傾倒' || vehicleTask === 'G01 食環署傾倒') &&
-                    timeInMinutes >= (7 * 60 + 26) && timeInMinutes <= (23 * 60 + 59)) {
-                    dayData.publicNormalLoads++;
-                    dayData.publicNormalTonnes += weight;
-                }
-                
-                // 4. Privately Collected Waste Normal (07:26 - 23:59)
-                if (vehicleTask === 'P99 私人車傾倒' &&
-                    timeInMinutes >= (7 * 60 + 26) && timeInMinutes <= (23 * 60 + 59)) {
-                    dayData.privateLoads++;
-                    dayData.privateTonnes += weight;
-                }
-                
-                // 5. Grease Trap Waste
-                if (vehicleTask === 'P97 油脂傾倒(私人車）') {
-                    dayData.greaseTrapLoads++;
-                    dayData.greaseTrapTonnes += weight;
-                }
-                
-            } catch (error) {
-                console.log('Error processing record:', record, error);
+            if (task === 'C31 食環署外判車傾倒' && type === '家居垃圾 - 坑渠垃圾、砂礫、沙泥和碎石' && mins >= 265 && mins <= 445) {
+                day.gullyWasteLoads++; day.gullyWasteTonnes += weight;
+            }
+            if ((task === 'C31 食環署外判車傾倒' || task === 'G01 食環署傾倒') && mins >= 446) {
+                day.publicNormalLoads++; day.publicNormalTonnes += weight;
+            }
+            if (task === 'P99 私人車傾倒' && mins >= 446) {
+                day.privateLoads++; day.privateTonnes += weight;
+            }
+            if (task === 'P97 油脂傾倒(私人車）') {
+                day.greaseTrapLoads++; day.greaseTrapTonnes += weight;
             }
         });
-        
-        // Calculate extended hours totals (Domestic + Gully)
-        dayData.extendedLoads = dayData.domesticWasteLoads + dayData.gullyWasteLoads;
-        dayData.extendedTonnes = dayData.domesticWasteTonnes + dayData.gullyWasteTonnes;
-        
-        // Calculate daily totals
-        dayData.dailyTotalLoads = dayData.extendedLoads + dayData.publicNormalLoads + dayData.privateLoads;
-        dayData.dailyTotalTonnes = dayData.extendedTonnes + dayData.publicNormalTonnes + dayData.privateTonnes;
-        
-        // Round tonnes to 2 decimal places
-        dayData.domesticWasteTonnes = dayData.domesticWasteTonnes.toFixed(2);
-        dayData.gullyWasteTonnes = dayData.gullyWasteTonnes.toFixed(2);
-        dayData.extendedTonnes = dayData.extendedTonnes.toFixed(2);
-        dayData.publicNormalTonnes = dayData.publicNormalTonnes.toFixed(2);
-        dayData.privateTonnes = dayData.privateTonnes.toFixed(2);
-        dayData.dailyTotalTonnes = dayData.dailyTotalTonnes.toFixed(2);
-        dayData.greaseTrapTonnes = dayData.greaseTrapTonnes.toFixed(2);
-        
-        monthData.push(dayData);
+
+        // Round tonnes
+        day.domesticWasteTonnes = day.domesticWasteTonnes.toFixed(2);
+        day.gullyWasteTonnes = day.gullyWasteTonnes.toFixed(2);
+        day.publicNormalTonnes = day.publicNormalTonnes.toFixed(2);
+        day.privateTonnes = day.privateTonnes.toFixed(2);
+        day.greaseTrapTonnes = day.greaseTrapTonnes.toFixed(2);
+
+        day.dailyTotalLoads = day.domesticWasteLoads + day.gullyWasteLoads + day.publicNormalLoads + day.privateLoads;
+        day.dailyTotalTonnes = (parseFloat(day.domesticWasteTonnes) + parseFloat(day.gullyWasteTonnes) +
+            parseFloat(day.publicNormalTonnes) + parseFloat(day.privateTonnes)).toFixed(2);
+
+        return day;
     });
-    
-    // Sort by date
-    monthData.sort((a, b) => {
-        const [dayA, monthA, yearA] = a.date.split('/').map(Number);
-        const [dayB, monthB, yearB] = b.date.split('/').map(Number);
-        return new Date(yearA, monthA - 1, dayA) - new Date(yearB, monthB - 1, dayB);
-    });
-    
-    console.log(`Final month data: ${monthData.length} days`);
-    return monthData;
+
+    days.sort((a, b) => a.date.split('/').reverse().join('-').localeCompare(b.date.split('/').reverse().join('-')));
+    return days;
 }
 
-function getMonthIndex(month) {
-    const months = ['january', 'february', 'march', 'april', 'may', 'june', 
-                   'july', 'august', 'september', 'october', 'november', 'december'];
-    return months.indexOf(month.toLowerCase());
-}
-
-// Function to generate time slots with corrected 23:30-23:59 slot
+// ======================== HOURLY PROCESSING ========================
+// CORRECTED Time Slot Generation
 function generateTimeSlots() {
-    const timeSlots = [];
-    
-    // 04:30 - 06:59
-    timeSlots.push('04:30 - 06:59');
-    
-    // Hourly slots from 07:00 to 23:00
-    for (let hour = 7; hour <= 23; hour++) {
-        const startHour = hour.toString().padStart(2, '0');
-        const endHour = hour.toString().padStart(2, '0');
-        timeSlots.push(`${startHour}:00 - ${endHour}:59`);
-    }
-    
-    // 23:30 - 04:29 (next day)
-    timeSlots.push('23:30 - 04:29');
-    
-    return timeSlots;
+    const slots = [
+        '04:30 - 06:59',    // Early morning extended hours
+        '07:00 - 07:59',    // Hourly slots
+        '08:00 - 08:59',
+        '09:00 - 09:59',
+        '10:00 - 10:59',
+        '11:00 - 11:59',
+        '12:00 - 12:59',
+        '13:00 - 13:59',
+        '14:00 - 14:59',
+        '15:00 - 15:59',
+        '16:00 - 16:59',
+        '17:00 - 17:59',
+        '18:00 - 18:59',
+        '19:00 - 19:59',
+        '20:00 - 20:59',
+        '21:00 - 21:59',
+        '22:00 - 22:59',
+        '23:00 - 23:29',    // Fixed: Added this missing slot!
+        '23:30 - 04:29'     // Overnight slot (next day)
+    ];
+    return slots;
 }
 
-// Function to process hourly data with corrected vehicle task logic - COUNT LOADS
+// FINAL CORRECTED HOURLY PROCESSING
 function processHourlyData(month, year) {
-    const monthIndex = getMonthIndex(month);
+    const monthIdx = getMonthIndex(month);
+    const records = wktsData.filter(r => {
+        if (!r.日期 || !r.入磅時間 || r.交收狀態 !== '完成') return false;
+        const [d, m, y] = r.日期.split('/').map(Number);
+        return y === year && (m - 1) === monthIdx;
+    });
+
+    console.log(`📊 Processing ${records.length} records for hourly data in ${month} ${year}`);
+
+    const dates = [...new Set(records.map(r => r.日期))].sort();
     const timeSlots = generateTimeSlots();
-    
-    console.log(`Processing hourly data for ${month} ${year}, month index: ${monthIndex}`);
-    
-    // Filter data for the specific month and year
-    const monthRecords = wktsData.filter(record => {
-        if (!record.日期 || !record.入磅時間) {
-            return false;
-        }
-        
-        try {
-            // Parse date from "日期" field (DD/MM/YYYY)
-            const dateParts = record.日期.split('/');
-            if (dateParts.length !== 3) {
-                return false;
-            }
-            
-            const day = parseInt(dateParts[0]);
-            const recordMonth = parseInt(dateParts[1]);
-            const recordYear = parseInt(dateParts[2]);
-            
-            const recordDate = new Date(recordYear, recordMonth - 1, day);
-            
-            return recordDate.getMonth() === monthIndex && recordDate.getFullYear() === year;
-            
-        } catch (error) {
-            console.log('Error parsing date/time:', record.日期, record.入磅時間, error);
-            return false;
-        }
-    });
-    
-    console.log(`Hourly data: ${monthRecords.length} records found for ${month} ${year}`);
-    
-    if (monthRecords.length === 0) {
-        return { timeSlots, dailyData: {}, dailyWeights: {}, dates: [] };
-    }
-    
-    // Get all unique dates in the month
-    const dates = [...new Set(monthRecords.map(record => record.日期))].sort((a, b) => {
-        const [dayA, monthA, yearA] = a.split('/').map(Number);
-        const [dayB, monthB, yearB] = b.split('/').map(Number);
-        return new Date(yearA, monthA - 1, dayA) - new Date(yearB, monthB - 1, dayB);
-    });
-    
-    // Initialize data structure for loads and weights
-    const dailyData = {};
-    const dailyWeights = {};
-    dates.forEach(date => {
-        dailyData[date] = {};
-        dailyWeights[date] = {};
-        timeSlots.forEach(slot => {
-            dailyData[date][slot] = 0; // Count of loads
-            dailyWeights[date][slot] = 0; // Total weight
+
+    const dailyLoads = {}, dailyWeights = {};
+    dates.forEach(d => {
+        dailyLoads[d] = {};
+        dailyWeights[d] = {};
+        timeSlots.forEach(s => { 
+            dailyLoads[d][s] = 0; 
+            dailyWeights[d][s] = 0; 
         });
     });
-    
-    // Process each record and assign to time slots with corrected vehicle task logic
-    monthRecords.forEach(record => {
-        // Filter for completed records with specified vehicle tasks
-        if (record.交收狀態 !== '完成') {
-            return;
-        }
+
+    records.forEach(r => {
+        if (!['P99 私人車傾倒', 'G01 食環署傾倒', 'C31 食環署外判車傾倒'].includes(r.車輛任務)) return;
+
+        const [h, min] = r.入磅時間.split(':').map(Number);
+        const mins = h * 60 + min;
+        const weight = parseFloat(r.物料重量) || 0;
+
+        let slot = '';
         
-        const validVehicleTasks = ['P99 私人車傾倒', 'G01 食環署傾倒', 'C31 食環署外判車傾倒'];
-        if (!validVehicleTasks.includes(record.車輛任務)) {
-            return;
+        // 04:30 - 06:59 (270 - 419 minutes)
+        if (mins >= 270 && mins <= 419) {
+            slot = '04:30 - 06:59';
         }
-        
-        try {
-            const time = record.入磅時間;
-            const date = record.日期;
-            const weight = parseFloat(record.物料重量) || 0;
-            
-            if (!time || !date || !dailyData[date]) {
-                return;
-            }
-            
-            const [hours, minutes, seconds] = time.split(':').map(Number);
-            const totalMinutes = hours * 60 + minutes;
-            
-            let timeSlot = '';
-            
-            // Determine time slot
-            if (totalMinutes >= (4 * 60 + 20) && totalMinutes <= (6 * 60 + 59)) {
-                timeSlot = '04:30 - 06:59';
-            } else if (totalMinutes >= (23 * 60 + 30) && totalMinutes <= (23 * 60 + 59)) {
-                timeSlot = '23:30 - 04:29'; // This covers 23:30-23:59
-            } else if (totalMinutes >= 0 && totalMinutes <= (4 * 60 + 19)) {
-                timeSlot = '23:30 - 04:29'; // This covers 00:00-04:29 (next day)
-            } else {
-                // Hourly slots from 07:00 to 23:00
-                const hour = Math.floor(totalMinutes / 60);
-                if (hour >= 7 && hour <= 23) {
-                    const startHour = hour.toString().padStart(2, '0');
-                    timeSlot = `${startHour}:00 - ${startHour}:59`;
-                }
-            }
-            
-            if (timeSlot && dailyData[date][timeSlot] !== undefined) {
-                dailyData[date][timeSlot] += 1; // Count loads
-                dailyWeights[date][timeSlot] += weight; // Sum weights
-            }
-            
-        } catch (error) {
-            console.log('Error processing hourly record:', record, error);
+        // 07:00 - 22:59 (420 - 1379 minutes) - Hourly slots
+        else if (mins >= 420 && mins <= 1379) {
+            const hour = Math.floor(mins / 60);
+            slot = `${hour.toString().padStart(2, '0')}:00 - ${hour.toString().padStart(2, '0')}:59`;
+        }
+        // 23:00 - 23:29 (1380 - 1409 minutes)
+        else if (mins >= 1380 && mins <= 1409) {
+            slot = '23:00 - 23:29';
+        }
+        // 23:30 - 04:29 (1410 - 1439 OR 0 - 269 minutes) - Overnight (next day)
+        else if ((mins >= 1410 && mins <= 1439) || (mins >= 0 && mins <= 269)) {
+            slot = '23:30 - 04:29';
+        }
+
+        if (slot && dailyLoads[r.日期]) {
+            dailyLoads[r.日期][slot]++;
+            dailyWeights[r.日期][slot] += weight;
+        } else {
+            console.log(`❌ No slot found for time: ${r.入磅時間} (${mins} minutes)`);
         }
     });
-    
-    return { timeSlots, dailyData, dailyWeights, dates };
-}
 
-// Function to check if date is weekend
-function isWeekend(dateStr) {
-    const [day, month, year] = dateStr.split('/').map(Number);
-    const date = new Date(year, month - 1, day);
-    return date.getDay() === 0 || date.getDay() === 6; // 0 = Sunday, 6 = Saturday
-}
-
-// Function to check if date is Sunday
-function isSunday(dateStr) {
-    const [day, month, year] = dateStr.split('/').map(Number);
-    const date = new Date(year, month - 1, day);
-    return date.getDay() === 0; // 0 = Sunday
-}
-
-// Function to calculate hourly totals and averages
-function calculateHourlyTotals(timeSlots, dates, dailyData) {
-    const totals = {};
-    const averages = {};
-    
+    // Debug: Show final slot counts
+    const slotCounts = {};
+    let totalLoads = 0;
     timeSlots.forEach(slot => {
-        let total = 0;
+        slotCounts[slot] = 0;
         dates.forEach(date => {
-            total += dailyData[date][slot] || 0;
+            slotCounts[slot] += dailyLoads[date][slot] || 0;
         });
-        totals[slot] = total;
-        averages[slot] = dates.length > 0 ? (total / dates.length).toFixed(1) : 0;
+        totalLoads += slotCounts[slot];
     });
     
-    return { totals, averages };
+    console.log('📊 Final slot distribution:', slotCounts);
+    console.log(`📈 Total loads assigned: ${totalLoads} out of ${records.length} records`);
+
+    return { timeSlots, dailyLoads, dailyWeights, dates };
 }
 
-// Function to get weekday from date string (DD/MM/YYYY)
-function getWeekday(dateStr) {
-    const [day, month, year] = dateStr.split('/').map(Number);
-    const date = new Date(year, month - 1, day);
-    const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    return weekdays[date.getDay()];
+// ======================== UTILITIES ========================
+function getMonthIndex(m) {
+    return ['january','february','march','april','may','june','july','august','september','october','november','december']
+        .indexOf(m.toLowerCase());
 }
 
-// Function to show hourly table - SHOW LOADS WITH WEIGHT TOOLTIPS AND WEEKEND STYLING
+function isWeekend(d) { const [day, mon, yr] = d.split('/').map(Number); return new Date(yr, mon-1, day).getDay() % 6 === 0; }
+function isSunday(d) { const [day, mon, yr] = d.split('/').map(Number); return new Date(yr, mon-1, day).getDay() === 0; }
+function getWeekday(d) {
+    const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    const [day, mon, yr] = d.split('/').map(Number);
+    return days[new Date(yr, mon-1, day).getDay()];
+}
+
+function calculateTotals(data) {
+    const t = {
+        domesticWasteLoads: 0, domesticWasteTonnes: 0,
+        gullyWasteLoads: 0, gullyWasteTonnes: 0,
+        publicNormalLoads: 0, publicNormalTonnes: 0,
+        privateLoads: 0, privateTonnes: 0,
+        dailyTotalLoads: 0, dailyTotalTonnes: 0,
+        greaseTrapLoads: 0, greaseTrapTonnes: 0
+    };
+    data.forEach(d => {
+        t.domesticWasteLoads += d.domesticWasteLoads;
+        t.domesticWasteTonnes += parseFloat(d.domesticWasteTonnes);
+        t.gullyWasteLoads += d.gullyWasteLoads;
+        t.gullyWasteTonnes += parseFloat(d.gullyWasteTonnes);
+        t.publicNormalLoads += d.publicNormalLoads;
+        t.publicNormalTonnes += parseFloat(d.publicNormalTonnes);
+        t.privateLoads += d.privateLoads;
+        t.privateTonnes += parseFloat(d.privateTonnes);
+        t.dailyTotalLoads += d.dailyTotalLoads;
+        t.dailyTotalTonnes += parseFloat(d.dailyTotalTonnes);
+        t.greaseTrapLoads += d.greaseTrapLoads;
+        t.greaseTrapTonnes += parseFloat(d.greaseTrapTonnes);
+    });
+    Object.keys(t).forEach(k => t[k] = k.includes('Tonnes') ? t[k].toFixed(2) : t[k]);
+    return t;
+}
+
+function calculateAverages(data) {
+    const tot = calculateTotals(data);
+    const days = data.length;
+    const avg = {};
+    Object.keys(tot).forEach(k => {
+        avg[k] = k.includes('Tonnes')
+            ? (parseFloat(tot[k]) / days).toFixed(2)
+            : Math.round(tot[k] / days);
+    });
+    return avg;
+}
+
+// ======================== HOURLY TABLE FUNCTIONS ========================
 function showHourlyTable(month, stationName, hourlyData, year) {
-    const { timeSlots, dailyData, dailyWeights, dates } = hourlyData;
+    const { timeSlots, dailyLoads, dailyWeights, dates } = hourlyData;
     const monthName = month.charAt(0).toUpperCase() + month.slice(1);
     
     // Calculate totals and averages
-    const { totals, averages } = calculateHourlyTotals(timeSlots, dates, dailyData);
+    const { totals, averages } = calculateHourlyTotals(timeSlots, dates, dailyLoads);
     
     const statsContent = document.getElementById('monthlyStatsContent');
     
@@ -423,7 +345,6 @@ function showHourlyTable(month, stationName, hourlyData, year) {
                             const isWeekendDay = isWeekend(date);
                             const isSundayDay = isSunday(date);
                             const weekendClass = isWeekendDay ? 'weekend-date' : '';
-                            // KEEP weekend classes for red text color, but remove background colors in CSS
                             return `
                             <th class="date-header ${weekendClass}" colspan="1" data-date="${date}">
                                 ${date}<br>
@@ -446,11 +367,10 @@ function showHourlyTable(month, stationName, hourlyData, year) {
         let rowCount = 0;
         
         dates.forEach((date, dateIndex) => {
-            const loadCount = dailyData[date][timeSlot];
+            const loadCount = dailyLoads[date][timeSlot];
             const weight = dailyWeights[date][timeSlot];
             const isWeekendDay = isWeekend(date);
             const weekendClass = isWeekendDay ? 'weekend-data' : '';
-            // KEEP weekend class for red text color, but remove background colors in CSS
             
             if (loadCount > 0) {
                 tableHTML += `<td class="load-cell ${weekendClass}" data-weight="${weight.toFixed(2)}t" data-loads="${loadCount} loads" data-date="${date}">
@@ -481,7 +401,7 @@ function showHourlyTable(month, stationName, hourlyData, year) {
     dates.forEach(date => {
         let dateTotal = 0;
         timeSlots.forEach(slot => {
-            dateTotal += dailyData[date][slot] || 0;
+            dateTotal += dailyLoads[date][slot] || 0;
         });
         tableHTML += `<td class="date-total-cell"><strong>${dateTotal}</strong></td>`;
     });
@@ -509,7 +429,6 @@ function showHourlyTable(month, stationName, hourlyData, year) {
     setupHourlyExportButtons(month, year);
 }
 
-// Function to setup hover tooltips for hourly table
 function setupHourlyTooltips() {
     const loadCells = document.querySelectorAll('.load-cell');
     
@@ -563,7 +482,6 @@ function setupHourlyTooltips() {
     });
 }
 
-// Function to setup hourly export buttons
 function setupHourlyExportButtons(month, year) {
     const exportPdf = document.getElementById('exportHourlyPdf');
     const exportExcel = document.getElementById('exportHourlyExcel');
@@ -575,7 +493,7 @@ function setupHourlyExportButtons(month, year) {
             const stationName = selectedStation ? selectedStation.name.split(' - ')[0] : 'Unknown Station';
             
             // Get current hourly data for the specific year
-            const hourlyData = processHourlyData(month, year);
+            const hourlyData = getHourlyData(month, year);
             
             // Check if we have data before exporting
             if (hourlyData.dates.length > 0) {
@@ -593,7 +511,7 @@ function setupHourlyExportButtons(month, year) {
             const stationName = selectedStation ? selectedStation.name.split(' - ')[0] : 'Unknown Station';
             
             // Get current hourly data for the specific year
-            const hourlyData = processHourlyData(month, year);
+            const hourlyData = getHourlyData(month, year);
             
             // Check if we have data before exporting
             if (hourlyData.dates.length > 0) {
@@ -605,326 +523,172 @@ function setupHourlyExportButtons(month, year) {
     }
 }
 
-// Function to load hourly stats
-async function loadHourlyStats(month) {
-    console.log('Loading hourly stats for month:', month);
-    const selectedStationId = localStorage.getItem('stationId') || 'wkts';
-    const selectedStation = stations.find(s => s.id.toLowerCase() === selectedStationId.toLowerCase());
-    const stationName = selectedStation ? selectedStation.name.split(' - ')[0] : 'Unknown Station';
-    
-    const statsContent = document.getElementById('monthlyStatsContent');
-    statsContent.innerHTML = `
-        <div class="loading-state">
-            <div class="spinner"></div>
-            <p>Loading hourly WCV intake data for ${month} at ${stationName}...</p>
-        </div>
-    `;
-    
-    // Use current year only - NO FALLBACK
-    const currentYear = new Date().getFullYear();
-    const hourlyData = processHourlyData(month, currentYear);
-    
-    // Check if we have data for the requested year
-    const hasData = hourlyData.dates.length > 0;
-    
-    if (!hasData) {
-        statsContent.innerHTML = `
-            <div class="hourly-no-data">
-                <h3>No Hourly WCV Intake Data Available</h3>
-                <p>No completed transaction records found for ${month} ${currentYear} with vehicle tasks: P99 私人車傾倒, G01 食環署傾倒, or C31 食環署外判車傾倒.</p>
-                <p>Please check if the data file contains records for this month and year.</p>
-            </div>
-        `;
-        return;
-    }
-    
-    // Show the hourly table with data
-    showHourlyTable(month, stationName, hourlyData, currentYear);
-}
-
-// Function to load monthly stats
-async function loadMonthStats(month) {
-    console.log('Loading monthly stats for month:', month);
-    const selectedStationId = localStorage.getItem('stationId') || 'wkts';
-    const selectedStation = stations.find(s => s.id.toLowerCase() === selectedStationId.toLowerCase());
-    const stationName = selectedStation ? selectedStation.name.split(' - ')[0] : 'Unknown Station';
-    
-    const statsContent = document.getElementById('monthlyStatsContent');
-    statsContent.innerHTML = `
-        <div class="loading-state">
-            <div class="spinner"></div>
-            <p>Loading ${month} data for ${stationName}...</p>
-        </div>
-    `;
-    
-    // Use current year only - NO FALLBACK
-    const currentYear = new Date().getFullYear();
-    const monthData = processMonthData(month, currentYear);
-    
-    // Check if we have data for the requested year
-    const hasData = monthData.length > 0;
-    
-    if (!hasData) {
-        statsContent.innerHTML = `
-            <div class="no-data-message">
-                <h3>No Data Available</h3>
-                <p>No transaction records found for ${month} ${currentYear}.</p>
-                <p>Please check if:</p>
-                <ul>
-                    <li>The data file contains records for this month and year</li>
-                    <li>The date formats in the data are correct</li>
-                    <li>There are completed transactions (交收狀態: 完成)</li>
-                </ul>
-            </div>
-        `;
-        return;
-    }
-    
-    // Show the monthly table with data
-    showMonthlyTable(month, stationName, monthData, currentYear);
-}
-
-// Show Monthly Table with Data - CORRECTED HEADER FORMAT
-function showMonthlyTable(month, stationName, monthData, year) {
-    const monthName = month.charAt(0).toUpperCase() + month.slice(1);
-    
-    // Calculate totals and averages
-    const totals = calculateTotals(monthData);
-    const averages = calculateAverages(monthData);
-    
-    const statsContent = document.getElementById('monthlyStatsContent');
-    
-    statsContent.innerHTML = `
-<div class="monthly-table-container">
-    <div class="monthly-table-header">
-        <div class="monthly-table-title">Daily Transaction Log for MSW and GTW for ${monthName} ${year}</div>
-        <div class="table-actions">
-            <button class="export-btn" id="exportPdf">
-                Export to PDF
-            </button>
-            <button class="export-btn" id="exportExcel">
-                Export to Excel
-            </button>
-        </div>
-    </div>
-        
-    <div class="table-wrapper">
-        <table class="monthly-data-table">
-            <thead>
-                <!-- Row 1 -->
-                <tr>
-                    <th rowspan="4" class="transaction-date header-public">Transaction Date</th>
-                    <th colspan="6" class="header-public">Publicly Collected Waste</th>
-                    <th colspan="2" class="header-private">Privately Collected Waste</th>
-                    <th colspan="2" class="header-total">Daily Total</th>
-                    <th colspan="2" class="header-grease">Grease Trap Waste</th>
-                </tr>
-                <!-- Row 2 -->
-                <tr>
-                    <th colspan="4" class="header-public">Extended Reception Hours (0430-0730)</th>
-                    <th colspan="2" class="header-public">Normal (0730-2330)</th>
-                    <th colspan="2" class="header-private">Normal (0730-2330)</th>
-                    <th colspan="2" class="header-total"></th>
-                    <th colspan="2" class="header-grease"></th>
-                </tr>
-                <!-- Row 3 -->
-                <tr>
-                    <th colspan="2" class="header-public">Domestic Waste</th>
-                    <th colspan="2" class="header-public">Gully Waste (D06)</th>
-                    <th colspan="2" class="header-public"></th>
-                    <th colspan="2" class="header-private"></th>
-                    <th colspan="2" class="header-total"></th>
-                    <th colspan="2" class="header-grease"></th>
-                </tr>
-                <!-- Row 4 -->
-                <tr class="column-labels">
-                    <th class="header-public">No. of Loads</th>
-                    <th class="header-public">Tonnes</th>
-                    <th class="header-public">No. of Loads</th>
-                    <th class="header-public">Tonnes</th>
-                    <th class="header-public">No. of Loads</th>
-                    <th class="header-public">Tonnes</th>
-                    <th class="header-private">No. of Loads</th>
-                    <th class="header-private">Tonnes</th>
-                    <th class="header-total">No. of Loads</th>
-                    <th class="header-total">Tonnes</th>
-                    <th class="header-grease grease-trap-border">No. of Loads</th>
-                    <th class="header-grease">Tonnes</th>
-                </tr>
-            </thead>
-           
-            <tbody>
-                ${monthData.map((day, index) => {
-                    const date = new Date(day.date.split('/').reverse().join('-'));
-                    const isSunday = date.getDay() === 0;
-                    
-                    return `
-                        <tr class="${isSunday ? 'sunday-row' : ''}">
-                            <td class="transaction-date ${day.isWeekend ? 'weekend-date' : ''}">${day.date}</td>
-                            <td>${day.domesticWasteLoads}</td>
-                            <td>${day.domesticWasteTonnes}</td>
-                            <td>${day.gullyWasteLoads}</td>
-                            <td>${day.gullyWasteTonnes}</td>
-                            <td>${day.publicNormalLoads}</td>
-                            <td>${day.publicNormalTonnes}</td>
-                            <td>${day.privateLoads}</td>
-                            <td>${day.privateTonnes}</td>
-                            <td>${day.dailyTotalLoads}</td>
-                            <td>${day.dailyTotalTonnes}</td>
-                            <td>${day.greaseTrapLoads}</td>
-                            <td>${day.greaseTrapTonnes}</td>
-                        </tr>
-                    `;
-                }).join('')}
-            </tbody>
-            <tfoot>
-                <tr class="total-row">
-                    <td class="transaction-date">Total</td>
-                    <td>${totals.domesticWasteLoads}</td>
-                    <td>${totals.domesticWasteTonnes}</td>
-                    <td>${totals.gullyWasteLoads}</td>
-                    <td>${totals.gullyWasteTonnes}</td>
-                    <td>${totals.publicNormalLoads}</td>
-                    <td>${totals.publicNormalTonnes}</td>
-                    <td>${totals.privateLoads}</td>
-                    <td>${totals.privateTonnes}</td>
-                    <td>${totals.dailyTotalLoads}</td>
-                    <td>${totals.dailyTotalTonnes}</td>
-                    <td class="grease-trap-border">${totals.greaseTrapLoads}</td>
-                    <td>${totals.greaseTrapTonnes}</td>
-                </tr>
-                <tr class="average-row">
-                    <td class="transaction-date">Daily Average</td>
-                    <td>${averages.domesticWasteLoads}</td>
-                    <td>${averages.domesticWasteTonnes}</td>
-                    <td>${averages.gullyWasteLoads}</td>
-                    <td>${averages.gullyWasteTonnes}</td>
-                    <td>${averages.publicNormalLoads}</td>
-                    <td>${averages.publicNormalTonnes}</td>
-                    <td>${averages.privateLoads}</td>
-                    <td>${averages.privateTonnes}</td>
-                    <td>${averages.dailyTotalLoads}</td>
-                    <td>${averages.dailyTotalTonnes}</td>
-                    <td class="grease-trap-border">${averages.greaseTrapLoads}</td>
-                    <td>${averages.greaseTrapTonnes}</td>
-                </tr>
-            </tfoot>
-        </table>
-    </div>
-</div>
-    `;
-    
-    // Add export button event listeners
-    setupExportButtons(month, year);
-}
-
-// Calculate totals for the month
-function calculateTotals(monthData) {
-    const totals = {
-        domesticWasteLoads: 0,
-        domesticWasteTonnes: 0,
-        gullyWasteLoads: 0,
-        gullyWasteTonnes: 0,
-        extendedLoads: 0,
-        extendedTonnes: 0,
-        publicNormalLoads: 0,
-        publicNormalTonnes: 0,
-        privateLoads: 0,
-        privateTonnes: 0,
-        dailyTotalLoads: 0,
-        dailyTotalTonnes: 0,
-        greaseTrapLoads: 0,
-        greaseTrapTonnes: 0
-    };
-    
-    monthData.forEach(day => {
-        totals.domesticWasteLoads += day.domesticWasteLoads;
-        totals.domesticWasteTonnes += parseFloat(day.domesticWasteTonnes);
-        totals.gullyWasteLoads += day.gullyWasteLoads;
-        totals.gullyWasteTonnes += parseFloat(day.gullyWasteTonnes);
-        totals.extendedLoads += day.extendedLoads;
-        totals.extendedTonnes += parseFloat(day.extendedTonnes);
-        totals.publicNormalLoads += day.publicNormalLoads;
-        totals.publicNormalTonnes += parseFloat(day.publicNormalTonnes);
-        totals.privateLoads += day.privateLoads;
-        totals.privateTonnes += parseFloat(day.privateTonnes);
-        totals.dailyTotalLoads += day.dailyTotalLoads;
-        totals.dailyTotalTonnes += parseFloat(day.dailyTotalTonnes);
-        totals.greaseTrapLoads += day.greaseTrapLoads;
-        totals.greaseTrapTonnes += parseFloat(day.greaseTrapTonnes);
-    });
-    
-    // Format to 2 decimal place for tonnes
-    Object.keys(totals).forEach(key => {
-        if (key.includes('Tonnes')) {
-            totals[key] = totals[key].toFixed(2);
-        }
-    });
-    
-    return totals;
-}
-
-// Calculate averages for the month
-function calculateAverages(monthData) {
-    const totals = calculateTotals(monthData);
-    const days = monthData.length;
-    
+function calculateHourlyTotals(timeSlots, dates, dailyData) {
+    const totals = {};
     const averages = {};
     
-    Object.keys(totals).forEach(key => {
-        if (key.includes('Tonnes')) {
-            averages[key] = (parseFloat(totals[key]) / days).toFixed(2);
-        } else {
-            averages[key] = Math.round(parseFloat(totals[key]) / days);
-        }
+    timeSlots.forEach(slot => {
+        let total = 0;
+        dates.forEach(date => {
+            total += dailyData[date][slot] || 0;
+        });
+        totals[slot] = total;
+        averages[slot] = dates.length > 0 ? (total / dates.length).toFixed(1) : 0;
     });
     
-    return averages;
+    return { totals, averages };
 }
 
-// Function to setup monthly export buttons
-function setupExportButtons(month, year) {
-    const exportPdf = document.getElementById('exportPdf');
-    const exportExcel = document.getElementById('exportExcel');
-    
-    if (exportPdf) {
-        exportPdf.addEventListener('click', () => {
-            const selectedStationId = localStorage.getItem('stationId') || 'wkts';
-            const selectedStation = stations.find(s => s.id.toLowerCase() === selectedStationId.toLowerCase());
-            const stationName = selectedStation ? selectedStation.name.split(' - ')[0] : 'Unknown Station';
-            
-            // Get current monthly data for the specific year
-            const monthData = processMonthData(month, year);
-            
-            // Check if we have data before exporting
-            if (monthData.length > 0) {
-                exportMonthlyToPdf(month, stationName, monthData, calculateTotals, calculateAverages, year);
-            } else {
-                alert('No data available to export for the selected month and year.');
+// ======================== MONTHLY TABLE RENDERER ========================
+function showMonthlyTable(month, stationName, monthData, year) {
+    const monthName = month.charAt(0).toUpperCase() + month.slice(1);
+    const totals = calculateTotals(monthData);
+    const averages = calculateAverages(monthData);
+
+    // Inject bold orange left border style once
+    if (!document.getElementById('gtw-orange-border-style')) {
+        const style = document.createElement('style');
+        style.id = 'gtw-orange-border-style';
+        style.textContent = `
+            .gtw-left-orange-bold {
+                border-left: 4px solid #ffaa00 !important;
+                font-weight: bold !important;
+                background-color: rgba(255, 170, 0, 0.05) !important;
             }
-        });
+        `;
+        document.head.appendChild(style);
     }
-    
-    if (exportExcel) {
-        exportExcel.addEventListener('click', () => {
-            const selectedStationId = localStorage.getItem('stationId') || 'wkts';
-            const selectedStation = stations.find(s => s.id.toLowerCase() === selectedStationId.toLowerCase());
-            const stationName = selectedStation ? selectedStation.name.split(' - ')[0] : 'Unknown Station';
-            
-            // Get current monthly data for the specific year
-            const monthData = processMonthData(month, year);
-            
-            // Check if we have data before exporting
-            if (monthData.length > 0) {
-                exportMonthlyToExcel(month, stationName, monthData, calculateTotals, calculateAverages, year);
-            } else {
-                alert('No data available to export for the selected month and year.');
-            }
-        });
-    }
+
+    document.getElementById('monthlyStatsContent').innerHTML = `
+    <div class="monthly-table-container">
+        <div class="monthly-table-header">
+            <div class="monthly-table-title">Daily Transaction Log for MSW and GTW – ${monthName} ${year}</div>
+            <div class="table-actions">
+                <button class="export-btn" id="exportMonthlyPdf">Export to PDF</button>
+                <button class="export-btn" id="exportMonthlyExcel">Export to Excel</button>
+            </div>
+        </div>
+        <div class="table-wrapper">
+            <table class="monthly-data-table">
+                <thead>
+                    <tr>
+                        <th rowspan="4" class="transaction-date header-public">Transaction Date</th>
+                        <th colspan="6" class="header-public">Publicly Collected Waste</th>
+                        <th colspan="2" class="header-private">Privately Collected Waste</th>
+                        <th colspan="2" class="header-total">Daily Total</th>
+                        <th colspan="2" class="header-grease">Grease Trap Waste</th>
+                    </tr>
+                    <tr>
+                        <th colspan="4" class="header-public">Extended Reception Hours (0430-0730)</th>
+                        <th colspan="2" class="header-public">Normal (0730-2330)</th>
+                        <th colspan="2" class="header-private">Normal (0730-2330)</th>
+                        <th colspan="2" class="header-total"></th>
+                        <th colspan="2" class="header-grease"></th>
+                    </tr>
+                    <tr>
+                        <th colspan="2" class="header-public">Domestic Waste</th>
+                        <th colspan="2" class="header-public">Gully Waste (D06)</th>
+                        <th colspan="2" class="header-public"></th>
+                        <th colspan="2" class="header-private"></th>
+                        <th colspan="2" class="header-total"></th>
+                        <th colspan="2" class="header-grease"></th>
+                    </tr>
+                    <tr class="column-labels">
+                        <th class="header-public">Loads</th><th class="header-public">Tonnes</th>
+                        <th class="header-public">Loads</th><th class="header-public">Tonnes</th>
+                        <th class="header-public">Loads</th><th class="header-public">Tonnes</th>
+                        <th class="header-private">Loads</th><th class="header-private">Tonnes</th>
+                        <th class="header-total">Loads</th><th class="header-total">Tonnes</th>
+                        <th class="header-grease gtw-left-orange-bold">Loads</th>
+                        <th class="header-grease">Tonnes</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${monthData.map(d => `
+                        <tr class="${isSunday(d.date) ? 'sunday-row' : ''}">
+                            <td class="transaction-date ${d.isWeekend ? 'weekend-date' : ''}">${d.date}</td>
+                            <td>${d.domesticWasteLoads}</td><td>${d.domesticWasteTonnes}</td>
+                            <td>${d.gullyWasteLoads}</td><td>${d.gullyWasteTonnes}</td>
+                            <td>${d.publicNormalLoads}</td><td>${d.publicNormalTonnes}</td>
+                            <td>${d.privateLoads}</td><td>${d.privateTonnes}</td>
+                            <td>${d.dailyTotalLoads}</td><td>${d.dailyTotalTonnes}</td>
+                            <td class="gtw-left-orange-bold">${d.greaseTrapLoads}</td>
+                            <td>${d.greaseTrapTonnes}</td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+                <tfoot>
+                    <tr class="total-row">
+                        <td>Total</td>
+                        <td>${totals.domesticWasteLoads}</td><td>${totals.domesticWasteTonnes}</td>
+                        <td>${totals.gullyWasteLoads}</td><td>${totals.gullyWasteTonnes}</td>
+                        <td>${totals.publicNormalLoads}</td><td>${totals.publicNormalTonnes}</td>
+                        <td>${totals.privateLoads}</td><td>${totals.privateTonnes}</td>
+                        <td>${totals.dailyTotalLoads}</td><td>${totals.dailyTotalTonnes}</td>
+                        <td class="gtw-left-orange-bold">${totals.greaseTrapLoads}</td><td>${totals.greaseTrapTonnes}</td>
+                    </tr>
+                    <tr class="average-row">
+                        <td>Daily Avg</td>
+                        <td>${averages.domesticWasteLoads}</td><td>${averages.domesticWasteTonnes}</td>
+                        <td>${averages.gullyWasteLoads}</td><td>${averages.gullyWasteTonnes}</td>
+                        <td>${averages.publicNormalLoads}</td><td>${averages.publicNormalTonnes}</td>
+                        <td>${averages.privateLoads}</td><td>${averages.privateTonnes}</td>
+                        <td>${averages.dailyTotalLoads}</td><td>${averages.dailyTotalTonnes}</td>
+                        <td class="gtw-left-orange-bold">${averages.greaseTrapLoads}</td><td>${averages.greaseTrapTonnes}</td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>`;
+
+    setupMonthlyExportButtons(month, year);
 }
 
-// Function to load waste intake data
+function setupMonthlyExportButtons(month, year) {
+    document.getElementById('exportMonthlyPdf')?.addEventListener('click', () => {
+        const data = getMonthlyData(month, year);
+        if (data.length === 0) return alert('No data to export');
+        const station = stations.find(s => s.id.toLowerCase() === (localStorage.getItem('stationId') || 'wkts').toLowerCase());
+        exportMonthlyToPdf(month, station?.name.split(' - ')[0] || 'Station', data, calculateTotals, calculateAverages, year);
+    });
+    document.getElementById('exportMonthlyExcel')?.addEventListener('click', () => {
+        const data = getMonthlyData(month, year);
+        if (data.length === 0) return alert('No data to export');
+        const station = stations.find(s => s.id.toLowerCase() === (localStorage.getItem('stationId') || 'wkts').toLowerCase());
+        exportMonthlyToExcel(month, station?.name.split(' - ')[0] || 'Station', data, calculateTotals, calculateAverages, year);
+    });
+}
+
+// ======================== LOADERS ========================
+async function loadMonthStats(month) {
+    const content = document.getElementById('monthlyStatsContent');
+    content.innerHTML = `<div class="loading-state"><div class="spinner"></div><p>Loading ${month} data...</p></div>`;
+
+    const { year, data: rawData } = await findLatestYear(processMonthData, month);
+    if (!year || rawData.length === 0) {
+        content.innerHTML = `<div class="no-data-message"><h3>No Data Available</h3><p>No records found for ${month}.</p></div>`;
+        return;
+    }
+
+    const station = stations.find(s => s.id.toLowerCase() === (localStorage.getItem('stationId') || 'wkts').toLowerCase());
+    showMonthlyTable(month, station?.name.split(' - ')[0] || 'Station', rawData, year);
+}
+
+async function loadHourlyStats(month) {
+    const content = document.getElementById('monthlyStatsContent');
+    content.innerHTML = `<div class="loading-state"><div class="spinner"></div><p>Loading hourly data...</p></div>`;
+
+    const { year, data: rawData } = await findLatestYear(processHourlyData, month);
+    if (!year || rawData.dates.length === 0) {
+        content.innerHTML = `<div class="hourly-no-data"><h3>No Hourly Data</h3><p>No matching records found.</p></div>`;
+        return;
+    }
+
+    const station = stations.find(s => s.id.toLowerCase() === (localStorage.getItem('stationId') || 'wkts').toLowerCase());
+    showHourlyTable(month, station?.name.split(' - ')[0] || 'Station', rawData, year);
+}
+
+// ======================== WASTE INTAKE LOADER ========================
 function loadWasteIntake(month) {
     console.log('Loading waste intake data for month:', month);
     
@@ -940,24 +704,32 @@ function loadWasteIntake(month) {
         </div>
     `;
     
-    // Use current year only
+    // Try years from current year down to 2023
     const currentYear = new Date().getFullYear();
+    let foundYear = currentYear;
     
     try {
-        // Call the actual implementation from period-table.js
-        const wasteIntakeData = window.processWasteIntakeData(month, currentYear);
+        let wasteIntakeData = null;
         
-        // Check if we have data for the requested year
+        for (let year = currentYear; year >= 2023; year--) {
+            wasteIntakeData = window.processWasteIntakeData(month, year);
+            if (wasteIntakeData && wasteIntakeData.length > 0) {
+                foundYear = year;
+                console.log(`✅ Found waste intake data for ${month} ${year}`);
+                break;
+            }
+        }
+        
         const hasData = wasteIntakeData && wasteIntakeData.length > 0;
         
         if (!hasData) {
             statsContent.innerHTML = `
                 <div class="no-data-message">
                     <h3>No Waste Intake Data Available</h3>
-                    <p>No completed transaction records found for ${month} ${currentYear}.</p>
+                    <p>No completed transaction records found for ${month} (2023-${currentYear}).</p>
                     <p>Please check if:</p>
                     <ul>
-                        <li>The data file contains records for this month and year</li>
+                        <li>The data file contains records for this month</li>
                         <li>The date formats in the data are correct</li>
                         <li>There are completed transactions (交收狀態: 完成)</li>
                     </ul>
@@ -967,7 +739,7 @@ function loadWasteIntake(month) {
         }
         
         // Show the Waste Intake table with data
-        window.showWasteIntakeTable(month, stationName, wasteIntakeData, currentYear);
+        window.showWasteIntakeTable(month, stationName, wasteIntakeData, foundYear);
         
     } catch (error) {
         console.error('Error loading waste intake data:', error);
@@ -981,22 +753,11 @@ function loadWasteIntake(month) {
     }
 }
 
-// Render the complete monthly stats page
+// ======================== PAGE RENDER & INIT ========================
 export function renderMonthlyStats() {
-    const selectedStationId = localStorage.getItem('stationId') || 'wkts';
-    const selectedStation = stations.find(s => s.id.toLowerCase() === selectedStationId.toLowerCase());
-    const stationName = selectedStation ? selectedStation.name : 'West Kowloon Transfer Station';
-    const namePart = stationName.split(' - ')[0];
-    
-    const stationList = stations.map(station => {
-        const isActive = station.id.toLowerCase() === selectedStationId.toLowerCase();
-        return `
-            <div class="station-item ${isActive ? 'active' : ''}" data-station="${station.id.toLowerCase()}">
-                <div class="station-checkbox ${isActive ? 'checked' : ''}"></div>
-                <div class="station-name-text">${station.id}</div>
-            </div>
-        `;
-    }).join('');
+    const stationId = localStorage.getItem('stationId') || 'wkts';
+    const station = stations.find(s => s.id.toLowerCase() === stationId.toLowerCase()) || stations[0];
+    const namePart = station.name.split(' - ')[0];
 
     return `
         <div class="monthly-stats-container">
@@ -1013,7 +774,15 @@ export function renderMonthlyStats() {
                         <div class="station-checkbox all-stations"></div>
                         <div class="station-name-text">All Stations</div>
                     </div>
-                    ${stationList}
+                    ${stations.map(station => {
+                        const isActive = station.id.toLowerCase() === stationId.toLowerCase();
+                        return `
+                            <div class="station-item ${isActive ? 'active' : ''}" data-station="${station.id.toLowerCase()}">
+                                <div class="station-checkbox ${isActive ? 'checked' : ''}"></div>
+                                <div class="station-name-text">${station.id}</div>
+                            </div>
+                        `;
+                    }).join('')}
                 </div>
 
                 <div class="sidebar-actions">
@@ -1142,29 +911,17 @@ export function renderMonthlyStats() {
     `;
 }
 
-// Initialize Monthly Stats Page
 export async function initializeMonthlyStats() {
-    console.log('Initializing Monthly Stats page...');
-    
-    // Check authentication
     if (!localStorage.getItem('isLoggedIn')) {
         window.location.href = 'index.html';
         return;
     }
-    
-    // Load WKTS data
+
     await loadWktsData();
-    
-    // Render the page
     document.getElementById('app').innerHTML = renderMonthlyStats();
-    
-    // Setup event listeners
     setupMonthlyStatsEventListeners();
-    
-    console.log('✅ Monthly Stats page initialized successfully');
 }
 
-// Setup Monthly Stats Event Listeners
 function setupMonthlyStatsEventListeners() {
     console.log('Setting up monthly stats event listeners...');
     
@@ -1301,7 +1058,6 @@ function setupMonthlyStatsEventListeners() {
     console.log('✅ Monthly stats event listeners setup complete');
 }
 
-// Handle station selection
 function handleStationSelect(stationId) {
     console.log('🔄 Station selected:', stationId);
     
@@ -1341,7 +1097,6 @@ function handleStationSelect(stationId) {
     console.log('✅ Station switched to:', stationId);
 }
 
-// Update sidebar active state
 function updateSidebarActiveState(selectedStationId) {
     // Remove active class from all station items
     document.querySelectorAll('[data-station]').forEach(el => {
@@ -1359,7 +1114,6 @@ function updateSidebarActiveState(selectedStationId) {
     }
 }
 
-// Update station name in header
 function updateStationHeader(stationId) {
     const selectedStation = stations.find(s => s.id.toLowerCase() === stationId.toLowerCase());
     if (selectedStation) {
@@ -1371,7 +1125,6 @@ function updateStationHeader(stationId) {
     }
 }
 
-// Show welcome message - SIMPLE DESIGN
 function showWelcomeMessage() {
     const statsContent = document.getElementById('monthlyStatsContent');
     
@@ -1383,10 +1136,6 @@ function showWelcomeMessage() {
     `;
 }
 
-// Export helper functions if needed by other modules
-export { getWeekday, isWeekend, isSunday, calculateHourlyTotals, calculateTotals, calculateAverages };
-
-// Logout function
 function logout() {
     localStorage.removeItem('isLoggedIn');
     localStorage.removeItem('stationId');
@@ -1395,5 +1144,6 @@ function logout() {
     window.location.href = 'index.html';
 }
 
-// Initialize when DOM is loaded
+export { getWeekday, isWeekend, isSunday, calculateTotals, calculateAverages };
+
 document.addEventListener('DOMContentLoaded', initializeMonthlyStats);
