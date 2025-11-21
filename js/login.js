@@ -18,7 +18,7 @@ document.getElementById('loginForm').onsubmit = (e) => {
   }
   
   // Validate password
-  if (password === 'epd123') {
+  if (password === 'Wkts2025') {
     showSuccess('Login successful! Redirecting...');
     
     // Store login state and station info

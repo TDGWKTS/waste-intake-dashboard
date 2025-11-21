@@ -34,12 +34,48 @@ export function setupSlicerEventListeners() {
         });
     }
     
-    // Initialize dropdown toggles
+    // Initialize dropdown toggles with responsive support
     setupDropdownToggle('deliveryStatusSelect', 'deliveryStatusDropdown');
     setupDropdownToggle('vehicleTasksSelect', 'vehicleTasksDropdown');
     setupDropdownToggle('wasteTypeSelect', 'wasteTypeDropdown');
     
+    // Add responsive event listeners
+    setupResponsiveBehavior();
+    
     console.log('✅ Slicer event listeners setup complete');
+}
+
+// === RESPONSIVE BEHAVIOR SETUP ===
+function setupResponsiveBehavior() {
+    // Handle window resize for responsive adjustments
+    let resizeTimeout;
+    window.addEventListener('resize', () => {
+        clearTimeout(resizeTimeout);
+        resizeTimeout = setTimeout(() => {
+            adjustDropdownsForMobile();
+            closeAllDropdowns(); // Close dropdowns on resize for better mobile experience
+        }, 250);
+    });
+    
+    // Initial adjustment
+    adjustDropdownsForMobile();
+}
+
+function adjustDropdownsForMobile() {
+    const isMobile = window.innerWidth <= 768;
+    const dropdowns = document.querySelectorAll('.dropdown-content');
+    
+    dropdowns.forEach(dropdown => {
+        if (isMobile) {
+            // Add mobile-specific classes
+            dropdown.classList.add('mobile-dropdown');
+            // Ensure dropdowns don't exceed viewport width
+            dropdown.style.maxWidth = `${window.innerWidth - 40}px`;
+        } else {
+            dropdown.classList.remove('mobile-dropdown');
+            dropdown.style.maxWidth = '';
+        }
+    });
 }
 
 // === STATION MANAGEMENT ===
@@ -63,7 +99,7 @@ async function reloadSlicerOptions() {
     }
 }
 
-// === DROPDOWN MANAGEMENT ===
+// === IMPROVED DROPDOWN MANAGEMENT ===
 function setupDropdownToggle(selectId, dropdownId) {
     const select = document.getElementById(selectId);
     const dropdown = document.getElementById(dropdownId);
@@ -78,7 +114,11 @@ function setupDropdownToggle(selectId, dropdownId) {
     // Initially hide dropdown
     dropdown.style.display = 'none';
     
-    select.addEventListener('click', (e) => {
+    // Remove any existing event listeners to prevent duplicates
+    select.replaceWith(select.cloneNode(true));
+    const freshSelect = document.getElementById(selectId);
+    
+    freshSelect.addEventListener('click', (e) => {
         e.stopPropagation();
         e.preventDefault();
         
@@ -97,14 +137,19 @@ function setupDropdownToggle(selectId, dropdownId) {
         } else {
             dropdown.style.display = 'block';
             dropdown.classList.add('show');
+            
+            // Adjust position for mobile
+            if (window.innerWidth <= 768) {
+                positionDropdownForMobile(dropdown, freshSelect);
+            }
         }
         
         console.log(`🔄 Dropdown ${dropdownId} now visible: ${!isVisible}`);
     });
     
-    // Close dropdown when clicking outside
+    // Improved click outside handler
     document.addEventListener('click', (e) => {
-        if (!select.contains(e.target) && !dropdown.contains(e.target)) {
+        if (!freshSelect.contains(e.target) && !dropdown.contains(e.target)) {
             dropdown.style.display = 'none';
             dropdown.classList.remove('show');
             console.log(`❌ Closed ${dropdownId} (clicked outside)`);
@@ -118,11 +163,41 @@ function setupDropdownToggle(selectId, dropdownId) {
     });
 }
 
+function positionDropdownForMobile(dropdown, select) {
+    const selectRect = select.getBoundingClientRect();
+    const viewportHeight = window.innerHeight;
+    
+    // Check if there's enough space below the select
+    const spaceBelow = viewportHeight - selectRect.bottom;
+    const dropdownHeight = Math.min(400, spaceBelow - 20); // Reserve some space
+    
+    if (spaceBelow < 200) {
+        // Not enough space below, position above
+        dropdown.style.bottom = '100%';
+        dropdown.style.top = 'auto';
+        dropdown.style.maxHeight = `${selectRect.top - 20}px`;
+    } else {
+        // Position below with available space
+        dropdown.style.top = '100%';
+        dropdown.style.bottom = 'auto';
+        dropdown.style.maxHeight = `${spaceBelow - 20}px`;
+    }
+    
+    // Ensure dropdown doesn't overflow horizontally
+    dropdown.style.left = '0';
+    dropdown.style.right = '0';
+    dropdown.style.width = '100%';
+}
+
 function closeAllDropdowns() {
     const dropdowns = document.querySelectorAll('.dropdown-content');
     dropdowns.forEach(dropdown => {
         dropdown.style.display = 'none';
         dropdown.classList.remove('show');
+        // Reset positioning
+        dropdown.style.top = '';
+        dropdown.style.bottom = '';
+        dropdown.style.maxHeight = '';
     });
     console.log('🚪 Closed all dropdowns');
 }
@@ -343,6 +418,18 @@ export async function applyFilters() {
     const { handleApplyFilters } = await import('./dashboard.js');
     handleApplyFilters();
 }
+
+// Add this CSS to your slicer.css for mobile support:
+/*
+.mobile-dropdown {
+    position: fixed !important;
+    left: 20px !important;
+    right: 20px !important;
+    width: auto !important;
+    max-width: calc(100vw - 40px) !important;
+    z-index: 10003 !important;
+}
+*/
 
 // Debug function
 export function debugSlicers() {

@@ -1,4 +1,4 @@
-﻿/* slicer.css - Slicer dropdown styles */
+﻿/* slicer.css - Desktop First Responsive Slicer dropdown styles */
 
 /* === HEADER === */
 .main-header {
@@ -35,7 +35,7 @@
     white-space: nowrap;
 }
 
-/* === SLICERS GRID - FLEX SINGLE LINE === */
+/* === SLICERS GRID - DESKTOP HORIZONTAL LAYOUT === */
 .slicers-grid {
     display: flex;
     gap: 12px;
@@ -77,7 +77,7 @@
     z-index: 1000;
 }
 
-/* Specific flexible widths for different slicers */
+/* Specific flexible widths for different slicers - DESKTOP */
 .slicer-group:nth-child(1) { /* Date Range */
     min-width: 280px;
     max-width: 350px;
@@ -102,7 +102,7 @@
 .slicer-group:nth-child(6) { /* Waste Type */
     min-width: 200px;
     max-width: 260px;
-    width: 100%; /* Ensure container takes full available space */
+    width: 100%;
 }
 
 .slicer-label {
@@ -167,38 +167,7 @@
     max-width: 100px;
 }
 
-/* === DATE PICKER STYLING === */
-.slicer-input[type="date"] {
-    position: relative;
-}
-
-.slicer-input[type="date"]::-webkit-calendar-picker-indicator {
-    filter: invert(0.5);
-    cursor: pointer;
-    padding: 4px;
-    margin-left: 4px;
-}
-
-.slicer-input[type="date"]::-webkit-datetime-edit {
-    color: #fff;
-}
-
-.slicer-input[type="date"]::-webkit-datetime-edit-fields-wrapper {
-    background: transparent;
-}
-
-.slicer-input[type="date"]::-webkit-datetime-edit-text {
-    color: #fff;
-    padding: 0 2px;
-}
-
-.slicer-input[type="date"]::-webkit-datetime-edit-month-field,
-.slicer-input[type="date"]::-webkit-datetime-edit-day-field,
-.slicer-input[type="date"]::-webkit-datetime-edit-year-field {
-    color: #fff;
-}
-
-/* === DROPDOWN SLICERS - CRITICAL FIXES === */
+/* === DROPDOWN STYLES === */
 .slicer-dropdown {
     position: relative;
     display: inline-block;
@@ -215,18 +184,17 @@
     padding-right: 30px;
     cursor: pointer;
     min-width: 150px;
-    width: 100%; /* This ensures it takes full container width */
+    width: 100%;
     position: relative;
     z-index: 1001;
 }
 
-/* DROPDOWN CONTENT - FIXED POSITIONING */
 .dropdown-content {
     display: none;
     position: absolute;
     top: 100%;
     left: 0;
-    right: 0; /* This makes it span the full width */
+    right: 0;
     background: #1a1a1a;
     border: 1px solid #00ff88;
     border-radius: 4px;
@@ -236,9 +204,9 @@
     overflow-y: auto;
     overflow-x: hidden;
     margin-top: 4px;
-    min-width: 100%; /* Force minimum width to match container */
-    width: 100%; /* Force width to match container */
-    box-sizing: border-box; /* Include padding in width calculation */
+    min-width: 100%;
+    width: 100%;
+    box-sizing: border-box;
     box-shadow: 0 8px 25px rgba(0, 0, 0, 0.9);
     animation: dropdownFadeIn 0.2s ease-out;
 }
@@ -254,21 +222,13 @@
     }
 }
 
-/* FORCE DROPDOWN TO SHOW WHEN ACTIVE */
 .dropdown-content.show {
     display: block !important;
     visibility: visible !important;
     opacity: 1 !important;
 }
 
-/* Make sure select elements are clickable and don't interfere */
-.slicer-select {
-    cursor: pointer;
-    position: relative;
-    z-index: 1001;
-}
-
-/* === DROPDOWN ITEMS WITH CHECKBOXES === */
+/* Dropdown items with checkboxes */
 .dropdown-item {
     display: flex;
     align-items: center;
@@ -288,7 +248,7 @@
     letter-spacing: 0.01em;
     border: 1px solid transparent;
     margin: 2px 0;
-    width: 100%; /* Ensure items take full dropdown width */
+    width: 100%;
     box-sizing: border-box;
 }
 
@@ -298,7 +258,6 @@
     border-color: rgba(0, 255, 136, 0.3);
 }
 
-/* CHECKBOX STYLES */
 .dropdown-checkbox {
     width: 12px;
     height: 12px;
@@ -328,121 +287,6 @@
     line-height: 1;
 }
 
-/* No data item styling */
-.dropdown-item.no-data {
-    color: #666;
-    cursor: not-allowed;
-}
-
-.dropdown-item.no-data:hover {
-    background: transparent;
-    color: #666;
-    border-color: transparent;
-}
-
-/* All option styling */
-.dropdown-item.all-option {
-    border-bottom: 1px solid #333;
-    margin-bottom: 4px;
-    padding-bottom: 8px;
-}
-
-/* SPECIFIC WIDTH CONTROL FOR WASTE TYPE DROPDOWN */
-.slicer-group:nth-child(6) { /* Waste Type */
-    min-width: 200px;
-    max-width: 260px;
-    width: 100%; /* Ensure container takes full available space */
-}
-
-/* Waste Type dropdown specific styling */
-.slicer-group:nth-child(6) .slicer-select {
-    min-width: 160px;
-    max-width: 220px;
-    width: 100%; /* Make select fill the container */
-}
-
-.slicer-group:nth-child(6) .dropdown-content {
-    min-width: 100% !important; /* Force minimum width to match container */
-    max-width: 100% !important; /* Force maximum width to match container */
-    width: 100% !important; /* Force exact width match */
-    left: 0 !important;
-    right: 0 !important;
-    box-sizing: border-box;
-}
-
-/* Keep other dropdowns with their original behavior */
-.slicer-group:nth-child(4) .dropdown-content { /* Delivery Status */
-    min-width: min-content;
-    max-width: 220px;
-    width: auto; /* Let it size to content */
-}
-
-.slicer-group:nth-child(5) .dropdown-content { /* Vehicle Tasks */
-    min-width: min-content;
-    max-width: 240px;
-    width: auto; /* Let it size to content */
-}
-
-/* Ensure dropdown items wrap properly within the fixed width */
-.dropdown-item {
-    display: flex;
-    align-items: center;
-    padding: 6px 8px;
-    color: #ccc;
-    font-size: 12px;
-    cursor: pointer;
-    border-radius: 3px;
-    transition: all 0.2s;
-    height: auto;
-    min-height: 24px;
-    line-height: 1.2;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    font-family: 'Segoe UI', 'Microsoft YaHei', 'PingFang SC', sans-serif;
-    letter-spacing: 0.01em;
-    border: 1px solid transparent;
-    margin: 2px 0;
-    width: 100%; /* Ensure items take full dropdown width */
-    box-sizing: border-box;
-}
-
-/* Scrollbar styling for dropdowns */
-.dropdown-content::-webkit-scrollbar {
-    width: 6px;
-}
-
-.dropdown-content::-webkit-scrollbar-track {
-    background: #1a1a1a;
-    border-radius: 3px;
-}
-
-.dropdown-content::-webkit-scrollbar-thumb {
-    background: #00ff88;
-    border-radius: 3px;
-}
-
-.dropdown-content::-webkit-scrollbar-thumb:hover {
-    background: #00cc70;
-}
-
-/* Make select elements fit content better */
-.slicer-group:nth-child(4) .slicer-select {
-    min-width: 140px;
-    max-width: 180px;
-}
-
-.slicer-group:nth-child(5) .slicer-select {
-    min-width: 150px;
-    max-width: 200px;
-}
-
-.slicer-group:nth-child(6) .slicer-select {
-    min-width: 160px;
-    max-width: 220px;
-    width: 100%;
-}
-
 /* === APPLY BUTTON === */
 .apply-btn {
     background: linear-gradient(135deg, #00ff88, #00cc70);
@@ -467,7 +311,9 @@
     box-shadow: 0 4px 12px rgba(0, 255, 136, 0.3);
 }
 
-/* === RESPONSIVE SLICERS === */
+/* === RESPONSIVE BREAKPOINTS === */
+
+/* Large tablets and small desktops */
 @media (max-width: 1200px) {
     .main-header {
         gap: 12px;
@@ -497,105 +343,191 @@
         min-width: 180px;
         max-width: 220px;
     }
-    
-    .slicer-group:nth-child(6) .slicer-select {
-        min-width: 140px;
-        max-width: 180px;
-        width: 100%;
-    }
-    
-    .slicer-group:nth-child(6) .dropdown-content {
-        min-width: 100% !important;
-        max-width: 100% !important;
-        width: 100% !important;
-    }
 }
 
-@media (max-width: 768px) {
+/* Tablets - Keep horizontal but adjust sizes */
+@media (max-width: 992px) {
     .main-header {
-        flex-direction: row;
-        align-items: flex-end;
-        gap: 8px;
-        height: auto;
-        min-height: 70px;
+        gap: 10px;
         padding: 12px;
-        overflow-x: auto;
-        flex-wrap: nowrap;
-    }
-    
-    .station-title-container {
-        min-width: 100px;
-        flex-shrink: 0;
-    }
-    
-    .station-main-title {
-        font-size: 18px;
-        white-space: nowrap;
     }
     
     .slicers-grid {
-        flex: 1;
         gap: 6px;
-        overflow-x: auto;
-    }
-    
-    .slicer-group {
-        flex-shrink: 0;
     }
     
     .slicer-group:nth-child(1) {
-        min-width: 200px;
-        max-width: 240px;
+        min-width: 220px;
+        max-width: 280px;
     }
     
     .slicer-group:nth-child(2),
     .slicer-group:nth-child(3) {
-        min-width: 70px;
-        max-width: 90px;
+        min-width: 90px;
+        max-width: 110px;
     }
     
-    .slicer-group:nth-child(4),
-    .slicer-group:nth-child(5),
+    .slicer-group:nth-child(4) {
+        min-width: 130px;
+        max-width: 170px;
+    }
+    
+    .slicer-group:nth-child(5) {
+        min-width: 150px;
+        max-width: 190px;
+    }
+    
     .slicer-group:nth-child(6) {
-        min-width: 120px;
-        max-width: 160px;
+        min-width: 160px;
+        max-width: 200px;
     }
     
-    .slicer-group:nth-child(6) .slicer-select {
+    .station-title-container {
         min-width: 100px;
-        max-width: 140px;
+    }
+    
+    .station-main-title {
+        font-size: 22px;
+    }
+}
+
+/* MOBILE BREAKPOINT - Single Column Layout */
+@media (max-width: 768px) {
+    .main-header {
+        flex-direction: column;
+        align-items: stretch;
+        height: auto;
+        min-height: auto;
+        padding: 16px 12px;
+        gap: 16px;
+        overflow-x: visible;
+    }
+    
+    .station-title-container {
+        min-width: auto;
+        justify-content: center;
+        text-align: center;
+        order: 1;
+    }
+    
+    .station-main-title {
+        font-size: 20px;
         width: 100%;
     }
     
-    .slicer-group:nth-child(6) .dropdown-content {
+    .slicers-grid {
+        flex-direction: column;
+        gap: 12px;
+        width: 100%;
+        order: 2;
+        overflow-x: visible;
+    }
+    
+    .slicer-group {
+        width: 100%;
+        min-width: 100% !important;
+        max-width: 100% !important;
+        flex-shrink: 1;
+    }
+    
+    /* Remove all fixed widths for mobile */
+    .slicer-group:nth-child(1),
+    .slicer-group:nth-child(2),
+    .slicer-group:nth-child(3),
+    .slicer-group:nth-child(4),
+    .slicer-group:nth-child(5),
+    .slicer-group:nth-child(6) {
+        min-width: 100% !important;
+        max-width: 100% !important;
+        width: 100% !important;
+    }
+    
+    /* Keep date range horizontal layout */
+    .date-range-inputs {
+        width: 100%;
+        display: flex;
+        gap: 8px;
+    }
+    
+    .date-range-inputs .slicer-input {
+        min-width: 0;
+        max-width: none;
+        flex: 1;
+    }
+    
+    /* Make all inputs full width */
+    .slicer-input,
+    .slicer-select {
         min-width: 100% !important;
         max-width: 100% !important;
         width: 100% !important;
     }
     
     .apply-btn {
-        min-width: 70px;
-        font-size: 12px;
-        padding: 6px 12px;
+        width: 100%;
+        min-width: auto;
+        order: 3;
+        margin-top: 8px;
+        height: 36px;
+        font-size: 14px;
+    }
+    
+    /* Adjust dropdowns for mobile */
+    .dropdown-content {
+        position: fixed;
+        left: 12px !important;
+        right: 12px !important;
+        width: auto !important;
+        max-width: calc(100vw - 24px) !important;
+        z-index: 10003;
     }
 }
 
-/* Ensure all elements stay in single line */
-.main-header > * {
-    flex-shrink: 0;
+/* Small mobile devices */
+@media (max-width: 480px) {
+    .main-header {
+        padding: 12px 10px;
+        gap: 12px;
+    }
+    
+    .station-main-title {
+        font-size: 18px;
+    }
+    
+    .slicers-grid {
+        gap: 10px;
+    }
+    
+    .slicer-label {
+        font-size: 10.5px;
+    }
+    
+    .slicer-input, .slicer-select {
+        font-size: 14px;
+        height: 36px;
+    }
+    
+    .date-range-inputs {
+        gap: 6px;
+    }
+    
+    .apply-btn {
+        height: 38px;
+        font-size: 15px;
+    }
 }
 
-/* Prevent any wrapping */
-.slicers-grid,
-.date-range-inputs,
-.slicer-group {
-    white-space: nowrap;
-}
-
-/* Critical fix: Prevent header from clipping dropdowns */
+/* Ensure all elements stay visible */
 .main-header,
 .slicers-grid,
 .slicer-group,
 .slicer-dropdown {
     overflow: visible !important;
+}
+
+/* Prevent any wrapping in desktop */
+.slicers-grid,
+.date-range-inputs,
+.slicer-group {
+    white-space: nowrap;
 }

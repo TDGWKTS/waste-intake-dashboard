@@ -1,5 +1,13 @@
 ﻿// period-table.js - Complete with Waste Intake logic and proper CSS classes
 
+// Import export functions from export.js
+import { 
+    exportWasteIntakeToPdf, 
+    exportWasteIntakeToExcel, 
+    exportPeriodToPdf, 
+    exportPeriodToExcel 
+} from './export.js';
+
 // Function to get month index
 function getMonthIndex(month) {
     const months = ['january', 'february', 'march', 'april', 'may', 'june', 
@@ -101,9 +109,6 @@ export function processWasteIntakeData(month, year) {
                 publicContractorLoads: 0,
                 publicContractorTonnage: 0,
                 // Private - MSW (P99)
-                privateMSWLoads: 0,
-                privateMSWTonnage: 0,
-                // GTW - GTW (P97)
                 privateMSWLoads: 0,
                 privateMSWTonnage: 0
             };
@@ -235,7 +240,7 @@ function calculateWasteIntakeAverages(monthData, totals) {
     return averages;
 }
 
-// Updated showWasteIntakeTable function with proper CSS classes
+// UPDATED: showWasteIntakeTable function with complete table HTML
 export function showWasteIntakeTable(month, stationName, wasteIntakeData, year) {
     const monthName = month.charAt(0).toUpperCase() + month.slice(1);
     const totals = calculateWasteIntakeTotals(wasteIntakeData);
@@ -257,59 +262,59 @@ export function showWasteIntakeTable(month, stationName, wasteIntakeData, year) 
             </div>
         </div>
         
-           <div class="table-wrapper">
+        <div class="table-wrapper">
             <table class="waste-intake-data-table">
                 <thead>
                     <tr>
                         <th rowspan="2" class="waste-intake-date-header">Date</th>
                         <th colspan="2" class="waste-intake-total-header">Total Waste Intake<br>(MSW+GTW)</th>
                         <th colspan="2" class="waste-intake-msw-header">Total Waste Intakes<br>(MSW)</th>
-                        <th colspan="2" class="waste-intake-gtw-header">Private<br>(GTW)</th>
                         <th colspan="2" class="waste-intake-public-am-header">Public<br>(AM Vehicle)</th>
                         <th colspan="2" class="waste-intake-public-contractor-header">Public<br>(Government Contractor)</th>
                         <th colspan="2" class="waste-intake-private-msw-header">Private<br>(MSW)</th>
+                        <th colspan="2" class="waste-intake-private-gtw-header">Private<br>(GTW)</th>
                     </tr>
-                    <tr class="column-labels">
+                    <tr>
+                        <!-- Total Waste Intake -->
                         <th class="waste-intake-subheader">Loads</th>
                         <th class="waste-intake-subheader">Tonnage</th>
-                        
+                        <!-- Total MSW -->
                         <th class="waste-intake-subheader">Loads</th>
                         <th class="waste-intake-subheader">Tonnage</th>
-                        
+                        <!-- Public AM Vehicle -->
                         <th class="waste-intake-subheader">Loads</th>
                         <th class="waste-intake-subheader">Tonnage</th>
-                        
+                        <!-- Public Contractor -->
                         <th class="waste-intake-subheader">Loads</th>
                         <th class="waste-intake-subheader">Tonnage</th>
-                        
+                        <!-- Private MSW -->
                         <th class="waste-intake-subheader">Loads</th>
                         <th class="waste-intake-subheader">Tonnage</th>
-                        
+                        <!-- Private GTW -->
                         <th class="waste-intake-subheader">Loads</th>
                         <th class="waste-intake-subheader">Tonnage</th>
                     </tr>
                 </thead>
-               
                 <tbody>
-                    ${wasteIntakeData.map((day, index) => {
-    const isWeekend = day.weekday === 'Sat' || day.weekday === 'Sun';
-    return `
-        <tr class="${isWeekend ? 'weekend-row' : ''}">
-            <td class="waste-intake-date-cell ${isWeekend ? 'weekend-date' : ''}">
-                ${day.weekday}<br>${day.date}
-            </td>
+                    ${wasteIntakeData.map(day => {
+                        const weekendStyle = day.weekday === 'Sat' || day.weekday === 'Sun' ? 'color: #ff4444;' : '';
+                        return `
+                            <tr>
+                                <td class="waste-intake-date-cell" style="${weekendStyle}">
+                                    ${day.weekday}<br>${day.date}
+                                </td>
                                 <td class="waste-intake-data-cell">${day.totalWasteIntakeLoads}</td>
                                 <td class="waste-intake-data-cell">${day.totalWasteIntakeTonnage.toFixed(2)}</td>
                                 <td class="waste-intake-data-cell">${day.totalMSWLoads}</td>
                                 <td class="waste-intake-data-cell">${day.totalMSWTonnage.toFixed(2)}</td>
-                                <td class="waste-intake-data-cell">${day.privateGTWLoads}</td>
-                                <td class="waste-intake-data-cell">${day.privateGTWTonnage.toFixed(2)}</td>
                                 <td class="waste-intake-data-cell">${day.publicAMVehicleLoads}</td>
                                 <td class="waste-intake-data-cell">${day.publicAMVehicleTonnage.toFixed(2)}</td>
                                 <td class="waste-intake-data-cell">${day.publicContractorLoads}</td>
                                 <td class="waste-intake-data-cell">${day.publicContractorTonnage.toFixed(2)}</td>
                                 <td class="waste-intake-data-cell">${day.privateMSWLoads}</td>
                                 <td class="waste-intake-data-cell">${day.privateMSWTonnage.toFixed(2)}</td>
+                                <td class="waste-intake-data-cell">${day.privateGTWLoads}</td>
+                                <td class="waste-intake-data-cell">${day.privateGTWTonnage.toFixed(2)}</td>
                             </tr>
                         `;
                     }).join('')}
@@ -321,14 +326,14 @@ export function showWasteIntakeTable(month, stationName, wasteIntakeData, year) 
                         <td><strong>${totals.totalWasteIntakeTonnage.toFixed(2)}</strong></td>
                         <td><strong>${totals.totalMSWLoads}</strong></td>
                         <td><strong>${totals.totalMSWTonnage.toFixed(2)}</strong></td>
-                        <td><strong>${totals.privateGTWLoads}</strong></td>
-                        <td><strong>${totals.privateGTWTonnage.toFixed(2)}</strong></td>
                         <td><strong>${totals.publicAMVehicleLoads}</strong></td>
                         <td><strong>${totals.publicAMVehicleTonnage.toFixed(2)}</strong></td>
                         <td><strong>${totals.publicContractorLoads}</strong></td>
                         <td><strong>${totals.publicContractorTonnage.toFixed(2)}</strong></td>
                         <td><strong>${totals.privateMSWLoads}</strong></td>
                         <td><strong>${totals.privateMSWTonnage.toFixed(2)}</strong></td>
+                        <td><strong>${totals.privateGTWLoads}</strong></td>
+                        <td><strong>${totals.privateGTWTonnage.toFixed(2)}</strong></td>
                     </tr>
                     <tr class="waste-intake-average-row">
                         <td class="waste-intake-date-cell"><strong>Daily Average</strong></td>
@@ -336,14 +341,14 @@ export function showWasteIntakeTable(month, stationName, wasteIntakeData, year) 
                         <td><strong>${averages.totalWasteIntakeTonnage}</strong></td>
                         <td><strong>${averages.totalMSWLoads}</strong></td>
                         <td><strong>${averages.totalMSWTonnage}</strong></td>
-                        <td><strong>${averages.privateGTWLoads}</strong></td>
-                        <td><strong>${averages.privateGTWTonnage}</strong></td>
                         <td><strong>${averages.publicAMVehicleLoads}</strong></td>
                         <td><strong>${averages.publicAMVehicleTonnage}</strong></td>
                         <td><strong>${averages.publicContractorLoads}</strong></td>
                         <td><strong>${averages.publicContractorTonnage}</strong></td>
                         <td><strong>${averages.privateMSWLoads}</strong></td>
                         <td><strong>${averages.privateMSWTonnage}</strong></td>
+                        <td><strong>${averages.privateGTWLoads}</strong></td>
+                        <td><strong>${averages.privateGTWTonnage}</strong></td>
                     </tr>
                 </tfoot>
             </table>
@@ -355,24 +360,24 @@ export function showWasteIntakeTable(month, stationName, wasteIntakeData, year) 
     </div>
     `;
     
-    // Add export button event listeners
-    setupWasteIntakeExportButtons(month, year);
+    // UPDATED: Add export button event listeners with ALL required data
+    setupWasteIntakeExportButtons(month, year, stationName, wasteIntakeData);
 }
 
-// Function to setup Waste Intake export buttons
-function setupWasteIntakeExportButtons(month, year) {
+// UPDATED: Function to setup Waste Intake export buttons with proper data passing
+function setupWasteIntakeExportButtons(month, year, stationName, wasteIntakeData) {
     const exportPdf = document.getElementById('exportWasteIntakePdf');
     const exportExcel = document.getElementById('exportWasteIntakeExcel');
     
     if (exportPdf) {
         exportPdf.addEventListener('click', () => {
-            alert(`PDF export for Waste Intake ${month} ${year} coming soon!`);
+            exportWasteIntakeToPdf(month, stationName, wasteIntakeData, year);
         });
     }
     
     if (exportExcel) {
         exportExcel.addEventListener('click', () => {
-            alert(`Excel export for Waste Intake ${month} ${year} coming soon!`);
+            exportWasteIntakeToExcel(month, stationName, wasteIntakeData, year);
         });
     }
 }
@@ -437,7 +442,7 @@ export function processPeriodData(period) {
         if (yearData && yearData.months.length > 0 && yearData.totalDays > 0) {
             availableYears.push(year);
             yearDataMap.set(year, yearData);
-            }
+        }
     }
     
     return {
@@ -595,9 +600,8 @@ function processMonthDataForPeriod(month, year) {
     }
 }
 
-// Function to group records by date - CORRECTED LOGIC with proper GTW
+// FIXED: Function to group records by date - COMPLETE categorization logic
 function groupRecordsByDate(records) {
-        
     const recordsByDate = {};
     let recordCount = 0;
     
@@ -641,20 +645,43 @@ function groupRecordsByDate(records) {
             gtwTonnage: 0
         };
         
-        // Process each record for the day
+        // FIXED: COMPLETE categorization logic for period tables
         records.forEach(record => {
             const vehicleTask = record.車輛任務 || '';
             const weight = parseFloat(record.物料重量) || 0;
             
-            // Your existing categorization logic here...
+            // MSW Categories
             if (vehicleTask === 'C31 食環署外判車傾倒' || 
                 vehicleTask === 'P99 私人車傾倒' || 
                 vehicleTask === 'G01 食環署傾倒') {
                 dayData.mswLoads++;
                 dayData.mswTons += weight;
+                
+                // Breakdown within MSW
+                if (vehicleTask === 'G01 食環署傾倒') {
+                    dayData.amVehicleLoads++;
+                    dayData.amVehicleTons += weight;
+                } else if (vehicleTask === 'C31 食環署外判車傾倒') {
+                    dayData.fehdContractorLoads++;
+                    dayData.fehdContractorTons += weight;
+                } else if (vehicleTask === 'P99 私人車傾倒') {
+                    dayData.privateLoads++;
+                    dayData.privateTons += weight;
+                }
             }
-            // ... rest of your categorization logic
+            // GTW Category
+            else if (vehicleTask === 'P97 油脂傾倒(私人車）') {
+                dayData.gtwLoads++;
+                dayData.gtwTonnage += weight;
+            }
         });
+        
+        // Round tonnage values
+        dayData.mswTons = parseFloat(dayData.mswTons.toFixed(2));
+        dayData.amVehicleTons = parseFloat(dayData.amVehicleTons.toFixed(2));
+        dayData.fehdContractorTons = parseFloat(dayData.fehdContractorTons.toFixed(2));
+        dayData.privateTons = parseFloat(dayData.privateTons.toFixed(2));
+        dayData.gtwTonnage = parseFloat(dayData.gtwTonnage.toFixed(2));
         
         return dayData;
     });
@@ -864,20 +891,20 @@ function getPeriodDisplayName(period) {
     return periodNames[period] || period.toUpperCase();
 }
 
-// Function to setup period export buttons
+// UPDATED: Function to setup period export buttons with proper data passing
 function setupPeriodExportButtons(period, stationName, yearData, year, tableIndex) {
     const exportPdf = document.getElementById(`exportPeriodPdf${tableIndex}`);
     const exportExcel = document.getElementById(`exportPeriodExcel${tableIndex}`);
     
     if (exportPdf) {
         exportPdf.addEventListener('click', () => {
-            alert(`PDF export for ${getPeriodDisplayName(period)} ${year} coming soon!`);
+            exportPeriodToPdf(period, stationName, yearData, year);
         });
     }
     
     if (exportExcel) {
         exportExcel.addEventListener('click', () => {
-            alert(`Excel export for ${getPeriodDisplayName(period)} ${year} coming soon!`);
+            exportPeriodToExcel(period, stationName, yearData, year);
         });
     }
 }
@@ -913,7 +940,6 @@ export function setWktsData(data) {
 export function setStations(data) {
     window.stations = data;
 }
-
 
 // Make functions available globally for monthly-stats.js
 window.processWasteIntakeData = processWasteIntakeData;
