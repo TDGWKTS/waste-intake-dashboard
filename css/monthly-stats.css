@@ -57,6 +57,11 @@ html, body {
     white-space: nowrap;
 }
 
+.monthly-statse td:nth-child(7) 
+{    border-left: 3px solid #ff6b35 !important;
+    position: relative;
+}
+
 .period-selector {
     display: flex;
     align-items: center;

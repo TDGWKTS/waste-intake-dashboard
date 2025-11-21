@@ -200,6 +200,8 @@
     gap: 20px;
 }
 
+
+
 .waste-intake-title {
     color: #00ff88;
     font-size: 22px;
@@ -780,4 +782,18 @@
 .period-data-table .weekend-date {
     color: #ff6b6b !important;
     font-weight: 700;
+}
+.waste-intake-data-table td:nth-child(12) 
+{    border-left: 4px solid #ffaa00 !important;
+    position: relative;
+}
+
+/* Period table specific weekend styling - RED TEXT ONLY */
+.period-data-table .weekend-date {
+    color: #ff6b6b !important;
+    font-weight: 700;
+}
+.period-data-table td:nth-child(10) 
+{    border-left: 4px solid #ffaa00 !important;
+    position: relative;
 }
